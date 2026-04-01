@@ -22,7 +22,7 @@ checkpoints/legacy/*.pt
 # Generated replay artifacts
 replays/*.json
 replays/*.png
-
+replays/decisive/*.json
 # Backup files
 *.bak
 

@@ -4711,3 +4711,612 @@ RuntimeError: Error(s) in loading state_dict for OptimizedModule:
 20:36:37 INFO  |   SP G03 winner=2 moves=14 dur=6.9s buffer=9578 avg_batch=9.2 sims=25
 20:36:38 INFO  |   SP G02 winner=2 moves=19 dur=8.4s buffer=9584 avg_batch=8.2 sims=25
 20:36:39 INFO  |   SP G05 winner=2 moves=18 dur=8.7s buffer=9589 avg_batch=7.9 sims=25
+03:36:28 INFO  | === HexGo Training (Batched MCTS) ===
+03:36:28 INFO  | Device=cuda  Params=1,926,021  SIMS=100  GAMES/GEN=64  TOP_K=12  BATCH=256
+03:36:28 WARNING | Checkpoint incompatible (Error(s) in loading state_dict for HexNet:
+	Missing key(s) in state_dict: "blocks.3.conv1.weight", "blocks.3.conv1.hex_mask", "blocks.3.bn1.weight", "blocks.3.bn1.bias", "blocks.3.bn1.running_mean", "blocks.3.bn1.running_var", "blocks.3.conv2.weight", "blocks.3.conv2.hex_mask", "blocks.3.bn2.weight", "blocks.3.bn2.bias", "blocks.3.bn2.running_mean", "blocks.3.bn2.running_var", "blocks.4.conv1.weight", "blocks.4.conv1.hex_mask", "blocks.4.bn1.weight", "blocks.4.bn1.bias", "blocks.4.bn1.running_mean", "blocks.4.bn1.running_var", "blocks.4.conv2.weight", "blocks.4.conv2.hex_mask", "blocks.4.bn2.weight", "blocks.4.bn2.bias", "blocks.4.bn2.running_mean", "blocks.4.bn2.running_var", "blocks.5.conv1.weight", "blocks.5.conv1.hex_mask", "blocks.5.bn1.weight", "blocks.5.bn1.bias", "blocks.5.bn1.running_mean", "blocks.5.bn1.running_var", "blocks.5.conv2.weight", "blocks.5.conv2.hex_mask", "blocks.5.bn2.weight", "blocks.5.bn2.bias", "blocks.5.bn2.running_mean", "blocks.5.bn2.running_var", "p_conv.3.weight", "p_conv.3.bias". 
+	Unexpected key(s) in state_dict: "p_fc.0.weight", "p_fc.0.bias", "p_fc.2.weight", "p_fc.2.bias". 
+	size mismatch for stem.0.weight: copying a param with shape torch.Size([48, 17, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 17, 3, 3]).
+	size mismatch for stem.1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for stem.1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for stem.1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for stem.1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.conv1.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.0.bn1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.conv2.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.0.bn2.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn2.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn2.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn2.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.conv1.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.1.bn1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.conv2.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.1.bn2.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn2.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn2.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn2.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.conv1.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.2.bn1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.conv2.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.2.bn2.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn2.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn2.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn2.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for global_pool.fc.0.weight: copying a param with shape torch.Size([48, 96]) from checkpoint, the shape in current model is torch.Size([128, 256]).
+	size mismatch for global_pool.fc.0.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for v_conv.0.weight: copying a param with shape torch.Size([1, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([1, 128, 1, 1]).
+	size mismatch for v_fc.0.weight: copying a param with shape torch.Size([96, 324]) from checkpoint, the shape in current model is torch.Size([256, 324]).
+	size mismatch for v_fc.0.bias: copying a param with shape torch.Size([96]) from checkpoint, the shape in current model is torch.Size([256]).
+	size mismatch for v_fc.2.weight: copying a param with shape torch.Size([1, 96]) from checkpoint, the shape in current model is torch.Size([1, 256]).
+	size mismatch for p_conv.0.weight: copying a param with shape torch.Size([4, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([128, 128, 1, 1]).
+	size mismatch for p_conv.1.weight: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for p_conv.1.bias: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for p_conv.1.running_mean: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for p_conv.1.running_var: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for value_var.2.weight: copying a param with shape torch.Size([1, 48]) from checkpoint, the shape in current model is torch.Size([1, 128]).
+	size mismatch for aux_own.0.weight: copying a param with shape torch.Size([1, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([1, 128, 1, 1]).
+	size mismatch for aux_threat.weight: copying a param with shape torch.Size([1, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([1, 128, 1, 1]).) -- moving to legacy/
+03:38:37 INFO  | === HexGo Training (Batched MCTS) ===
+03:38:37 INFO  | Device=cuda  Params=1,926,021  SIMS=100  GAMES/GEN=32  TOP_K=12  BATCH=256
+03:38:37 WARNING | Checkpoint incompatible (Error(s) in loading state_dict for HexNet:
+	Missing key(s) in state_dict: "blocks.3.conv1.weight", "blocks.3.conv1.hex_mask", "blocks.3.bn1.weight", "blocks.3.bn1.bias", "blocks.3.bn1.running_mean", "blocks.3.bn1.running_var", "blocks.3.conv2.weight", "blocks.3.conv2.hex_mask", "blocks.3.bn2.weight", "blocks.3.bn2.bias", "blocks.3.bn2.running_mean", "blocks.3.bn2.running_var", "blocks.4.conv1.weight", "blocks.4.conv1.hex_mask", "blocks.4.bn1.weight", "blocks.4.bn1.bias", "blocks.4.bn1.running_mean", "blocks.4.bn1.running_var", "blocks.4.conv2.weight", "blocks.4.conv2.hex_mask", "blocks.4.bn2.weight", "blocks.4.bn2.bias", "blocks.4.bn2.running_mean", "blocks.4.bn2.running_var", "blocks.5.conv1.weight", "blocks.5.conv1.hex_mask", "blocks.5.bn1.weight", "blocks.5.bn1.bias", "blocks.5.bn1.running_mean", "blocks.5.bn1.running_var", "blocks.5.conv2.weight", "blocks.5.conv2.hex_mask", "blocks.5.bn2.weight", "blocks.5.bn2.bias", "blocks.5.bn2.running_mean", "blocks.5.bn2.running_var", "p_conv.3.weight", "p_conv.3.bias". 
+	Unexpected key(s) in state_dict: "p_fc.0.weight", "p_fc.0.bias", "p_fc.2.weight", "p_fc.2.bias". 
+	size mismatch for stem.0.weight: copying a param with shape torch.Size([48, 17, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 17, 3, 3]).
+	size mismatch for stem.1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for stem.1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for stem.1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for stem.1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.conv1.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.0.bn1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.conv2.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.0.bn2.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn2.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn2.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.0.bn2.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.conv1.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.1.bn1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.conv2.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.1.bn2.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn2.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn2.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.1.bn2.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.conv1.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.2.bn1.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn1.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn1.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn1.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.conv2.weight: copying a param with shape torch.Size([48, 48, 3, 3]) from checkpoint, the shape in current model is torch.Size([128, 128, 3, 3]).
+	size mismatch for blocks.2.bn2.weight: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn2.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn2.running_mean: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for blocks.2.bn2.running_var: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for global_pool.fc.0.weight: copying a param with shape torch.Size([48, 96]) from checkpoint, the shape in current model is torch.Size([128, 256]).
+	size mismatch for global_pool.fc.0.bias: copying a param with shape torch.Size([48]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for v_conv.0.weight: copying a param with shape torch.Size([1, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([1, 128, 1, 1]).
+	size mismatch for v_fc.0.weight: copying a param with shape torch.Size([96, 324]) from checkpoint, the shape in current model is torch.Size([256, 324]).
+	size mismatch for v_fc.0.bias: copying a param with shape torch.Size([96]) from checkpoint, the shape in current model is torch.Size([256]).
+	size mismatch for v_fc.2.weight: copying a param with shape torch.Size([1, 96]) from checkpoint, the shape in current model is torch.Size([1, 256]).
+	size mismatch for p_conv.0.weight: copying a param with shape torch.Size([4, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([128, 128, 1, 1]).
+	size mismatch for p_conv.1.weight: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for p_conv.1.bias: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for p_conv.1.running_mean: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for p_conv.1.running_var: copying a param with shape torch.Size([4]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for value_var.2.weight: copying a param with shape torch.Size([1, 48]) from checkpoint, the shape in current model is torch.Size([1, 128]).
+	size mismatch for aux_own.0.weight: copying a param with shape torch.Size([1, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([1, 128, 1, 1]).
+	size mismatch for aux_threat.weight: copying a param with shape torch.Size([1, 48, 1, 1]) from checkpoint, the shape in current model is torch.Size([1, 128, 1, 1]).) -- moving to legacy/
+03:38:37 INFO  | Quarantined incompatible checkpoints, starting fresh
+03:38:37 INFO  | Initialized HexConv2d kernels with hex-Laplacian CA priors.
+03:38:40 INFO  | torch.compile enabled (dynamic=True)
+03:38:40 INFO  | --- Generation 1 ---
+03:38:55 INFO  |   Self-play: 32 games in 15.0s  (2.1 games/s)  avg_moves=32  sims=20  max_moves=32  X=0 O=0 draw=32  positions=1024  buffer=1024
+03:38:59 INFO  |   Train: 10 batches in 3.8s  loss=2.3737  v=0.0644  p=2.2128  aux=0.0965  sigma=0.0000  ent=2.2814
+03:38:59 INFO  | Saved checkpoint checkpoints\net_gen0001.pt
+03:38:59 INFO  |   Generation 1 done in 18.9s  (sp=15.0s tr=3.8s)  lr=2.80e-04
+03:38:59 INFO  | --- Generation 2 ---
+03:39:11 INFO  |   Self-play: 32 games in 12.5s  (2.6 games/s)  avg_moves=35  sims=24  max_moves=35  X=0 O=0 draw=32  positions=1120  buffer=2144
+03:39:14 INFO  |   Train: 10 batches in 2.7s  loss=2.5076  v=0.0407  p=2.3710  aux=0.0958  sigma=0.0000  ent=2.3323
+03:39:14 INFO  | Saved checkpoint checkpoints\net_gen0002.pt
+03:39:14 INFO  |   Generation 2 done in 15.2s  (sp=12.5s tr=2.7s)  lr=4.60e-04
+03:39:14 INFO  | --- Generation 3 ---
+03:39:30 INFO  |   Self-play: 32 games in 16.1s  (2.0 games/s)  avg_moves=37  sims=28  max_moves=37  X=0 O=0 draw=32  positions=1184  buffer=3328
+03:39:34 INFO  |   Train: 13 batches in 4.0s  loss=2.4811  v=0.0230  p=2.3580  aux=0.1001  sigma=0.0000  ent=2.3756
+03:39:34 INFO  | Saved checkpoint checkpoints\net_gen0003.pt
+03:39:34 INFO  |   Generation 3 done in 20.2s  (sp=16.1s tr=4.0s)  lr=6.40e-04
+03:39:34 INFO  | --- Generation 4 ---
+03:39:56 INFO  |   Self-play: 32 games in 21.2s  (1.5 games/s)  avg_moves=40  sims=32  max_moves=40  X=0 O=0 draw=32  positions=1280  buffer=4608
+03:40:02 INFO  |   Train: 18 batches in 6.0s  loss=2.4542  v=0.0024  p=2.3517  aux=0.1001  sigma=0.0000  ent=2.3743
+03:40:02 INFO  | Saved checkpoint checkpoints\net_gen0004.pt
+03:40:02 INFO  |   Generation 4 done in 27.2s  (sp=21.2s tr=6.0s)  lr=8.20e-04
+03:40:02 INFO  | --- Generation 5 ---
+03:40:29 INFO  |   Self-play: 32 games in 27.8s  (1.2 games/s)  avg_moves=42  sims=37  max_moves=42  X=0 O=0 draw=32  positions=1344  buffer=5952
+03:40:37 INFO  |   Train: 23 batches in 8.0s  loss=2.4538  v=0.0004  p=2.3533  aux=0.1000  sigma=0.0000  ent=2.3756
+03:40:37 INFO  | Saved checkpoint checkpoints\net_gen0005.pt
+03:40:37 INFO  |   Generation 5 done in 35.9s  (sp=27.8s tr=8.0s)  lr=1.00e-03
+03:40:37 INFO  | --- Generation 6 ---
+03:41:11 INFO  |   Self-play: 32 games in 33.7s  (1.0 games/s)  avg_moves=45  sims=41  max_moves=45  X=0 O=0 draw=32  positions=1440  buffer=7392
+03:41:20 INFO  |   Train: 28 batches in 9.3s  loss=2.4632  v=0.0001  p=2.3631  aux=0.1000  sigma=0.0000  ent=2.3863
+03:41:20 INFO  | Saved checkpoint checkpoints\net_gen0006.pt
+03:41:20 INFO  |   Generation 6 done in 43.0s  (sp=33.7s tr=9.3s)  lr=1.00e-03
+03:41:20 INFO  | --- Generation 7 ---
+03:42:16 INFO  |   Self-play: 32 games in 55.3s  (0.6 games/s)  avg_moves=46  sims=45  max_moves=47  X=0 O=2 draw=30  positions=1483  buffer=8875
+03:42:16 INFO  |   Saved 2 decisive games to replays/decisive/
+03:42:46 INFO  |   Train: 34 batches in 30.1s  loss=2.4851  v=0.0161  p=2.3689  aux=0.1000  sigma=0.0000  ent=2.3937
+03:42:46 INFO  | Saved checkpoint checkpoints\net_gen0007.pt
+03:42:46 INFO  |   Generation 7 done in 85.5s  (sp=55.3s tr=30.1s)  lr=1.00e-03
+03:42:46 INFO  | --- Generation 8 ---
+03:44:25 INFO  |   Self-play: 32 games in 98.7s  (0.3 games/s)  avg_moves=49  sims=49  max_moves=50  X=0 O=2 draw=30  positions=1577  buffer=10452
+03:44:25 INFO  |   Saved 2 decisive games to replays/decisive/
+03:45:01 INFO  |   Train: 40 batches in 36.4s  loss=2.4999  v=0.0252  p=2.3747  aux=0.1000  sigma=0.0000  ent=2.4003
+03:45:01 INFO  | Saved checkpoint checkpoints\net_gen0008.pt
+03:45:01 INFO  |   Generation 8 done in 135.2s  (sp=98.7s tr=36.4s)  lr=1.00e-03
+03:45:01 INFO  | --- Generation 9 ---
+03:48:29 INFO  |   Self-play: 32 games in 207.9s  (0.2 games/s)  avg_moves=51  sims=53  max_moves=52  X=0 O=5 draw=27  positions=1638  buffer=12090
+03:48:29 INFO  |   Saved 5 decisive games to replays/decisive/
+03:49:48 INFO  |   Train: 47 batches in 79.3s  loss=2.5111  v=0.0547  p=2.3765  aux=0.0799  sigma=0.0000  ent=2.4014
+03:49:48 INFO  | Saved checkpoint checkpoints\net_gen0009.pt
+03:49:48 INFO  |   Generation 9 done in 287.2s  (sp=207.9s tr=79.3s)  lr=1.00e-03
+03:49:48 INFO  | --- Generation 10 ---
+03:53:44 INFO  | === HexGo Training (Batched MCTS) ===
+03:53:44 INFO  | Device=cuda  Params=1,926,021  SIMS=100  GAMES/GEN=32  TOP_K=12  BATCH=256
+03:53:44 INFO  | Loaded checkpoints\net_latest.pt
+03:53:46 INFO  | torch.compile enabled (dynamic=True)
+03:53:46 INFO  | --- Generation 10 ---
+03:53:56 INFO  |   Self-play: 32 games in 10.3s  (3.1 games/s)  avg_moves=32  sims=20  max_moves=32  X=0 O=0 draw=32  positions=1024  buffer=1024
+03:53:59 INFO  |   Train: 10 batches in 3.4s  loss=2.4051  v=0.0013  p=2.3530  aux=0.0508  sigma=0.0000  ent=2.3763
+03:54:00 INFO  | Saved checkpoint checkpoints\net_gen0010.pt
+03:54:00 INFO  |   Generation 10 done in 13.8s  (sp=10.3s tr=3.4s)  lr=2.80e-04
+03:54:00 INFO  | --- Generation 11 ---
+03:54:14 INFO  |   Self-play: 32 games in 14.2s  (2.2 games/s)  avg_moves=35  sims=24  max_moves=35  X=0 O=1 draw=31  positions=1111  buffer=2135
+03:54:14 INFO  |   Saved 1 decisive games to replays/decisive/
+03:54:18 INFO  |   Train: 10 batches in 4.4s  loss=2.4173  v=0.0231  p=2.3455  aux=0.0487  sigma=0.0000  ent=2.3693
+03:54:18 INFO  | Saved checkpoint checkpoints\net_gen0011.pt
+03:54:18 INFO  |   Generation 11 done in 18.8s  (sp=14.2s tr=4.4s)  lr=4.60e-04
+03:54:18 INFO  | --- Generation 12 ---
+03:54:37 INFO  |   Self-play: 32 games in 18.9s  (1.7 games/s)  avg_moves=37  sims=28  max_moves=37  X=0 O=1 draw=31  positions=1181  buffer=3316
+03:54:37 INFO  |   Saved 1 decisive games to replays/decisive/
+03:54:41 INFO  |   Train: 12 batches in 3.8s  loss=2.4422  v=0.0263  p=2.3656  aux=0.0504  sigma=0.0000  ent=2.3890
+03:54:41 INFO  | Saved checkpoint checkpoints\net_gen0012.pt
+03:54:41 INFO  |   Generation 12 done in 22.7s  (sp=18.9s tr=3.8s)  lr=6.40e-04
+03:54:41 INFO  | --- Generation 13 ---
+03:55:04 INFO  |   Self-play: 32 games in 22.8s  (1.4 games/s)  avg_moves=40  sims=32  max_moves=40  X=0 O=1 draw=31  positions=1274  buffer=4590
+03:55:04 INFO  |   Saved 1 decisive games to replays/decisive/
+03:55:10 INFO  |   Train: 17 batches in 6.4s  loss=2.4456  v=0.0267  p=2.3679  aux=0.0510  sigma=0.0000  ent=2.3914
+03:55:10 INFO  | Saved checkpoint checkpoints\net_gen0013.pt
+03:55:10 INFO  |   Generation 13 done in 29.2s  (sp=22.8s tr=6.4s)  lr=8.20e-04
+03:55:10 INFO  | --- Generation 14 ---
+03:56:11 INFO  |   Self-play: 32 games in 60.3s  (0.5 games/s)  avg_moves=42  sims=37  max_moves=42  X=0 O=0 draw=32  positions=1344  buffer=5934
+03:56:32 INFO  |   Train: 23 batches in 21.2s  loss=2.4367  v=0.0148  p=2.3701  aux=0.0518  sigma=0.0000  ent=2.3939
+03:56:32 INFO  | Saved checkpoint checkpoints\net_gen0014.pt
+03:56:32 INFO  |   Generation 14 done in 81.5s  (sp=60.3s tr=21.2s)  lr=1.00e-03
+03:56:32 INFO  | --- Generation 15 ---
+03:57:33 INFO  |   Self-play: 32 games in 60.9s  (0.5 games/s)  avg_moves=34  sims=41  max_moves=45  X=18 O=8 draw=6  positions=1081  buffer=7015
+03:57:33 INFO  |   Saved 26 decisive games to replays/decisive/
+03:57:58 INFO  |   Train: 27 batches in 25.2s  loss=2.6131  v=0.2040  p=2.3583  aux=0.0507  sigma=0.0000  ent=2.3817
+03:57:58 INFO  | Saved checkpoint checkpoints\net_gen0015.pt
+03:57:58 INFO  |   Generation 15 done in 86.2s  (sp=60.9s tr=25.2s)  lr=1.00e-03
+03:57:58 INFO  | --- Generation 16 ---
+03:59:28 INFO  |   Self-play: 32 games in 90.4s  (0.4 games/s)  avg_moves=28  sims=45  max_moves=47  X=8 O=24 draw=0  positions=892  buffer=7907
+03:59:28 INFO  |   Saved 32 decisive games to replays/decisive/
+04:00:17 INFO  |   Train: 30 batches in 49.1s  loss=2.7807  v=0.3899  p=2.3400  aux=0.0509  sigma=0.0000  ent=2.3658
+04:00:17 INFO  | Saved checkpoint checkpoints\net_gen0016.pt
+04:00:17 INFO  |   Generation 16 done in 139.5s  (sp=90.4s tr=49.1s)  lr=1.00e-03
+04:00:17 INFO  | --- Generation 17 ---
+04:01:52 INFO  |   Self-play: 32 games in 94.1s  (0.3 games/s)  avg_moves=25  sims=49  max_moves=50  X=12 O=20 draw=0  positions=801  buffer=8708
+04:01:52 INFO  |   Saved 32 decisive games to replays/decisive/
+04:02:48 INFO  |   Train: 34 batches in 56.0s  loss=2.8784  v=0.5055  p=2.3229  aux=0.0499  sigma=0.0000  ent=2.3487
+04:02:48 INFO  | Saved checkpoint checkpoints\net_gen0017.pt
+04:02:48 INFO  |   Generation 17 done in 150.2s  (sp=94.1s tr=56.0s)  lr=1.00e-03
+04:02:48 INFO  | --- Generation 18 ---
+04:04:24 INFO  |   Self-play: 32 games in 96.2s  (0.3 games/s)  avg_moves=24  sims=53  max_moves=52  X=12 O=20 draw=0  positions=764  buffer=9472
+04:04:24 INFO  |   Saved 32 decisive games to replays/decisive/
+04:10:10 INFO  | === HexGo Training (Batched MCTS) ===
+04:10:10 INFO  | Device=cuda  Params=1,926,021  SIMS=100  GAMES/GEN=64  TOP_K=12  BATCH=256
+04:10:10 INFO  | Loaded checkpoints\net_latest.pt
+04:10:13 INFO  | torch.compile enabled (dynamic=True)
+04:10:13 INFO  | --- Generation 18 ---
+04:10:26 INFO  |   Self-play: 64 games in 13.4s  (4.8 games/s)  avg_moves=24  sims=20  max_moves=32  X=32 O=29 draw=3  positions=1543  buffer=1543
+04:10:26 INFO  |   Saved 61 decisive games to replays/decisive/
+04:10:30 INFO  |   Train: 10 batches in 4.0s  loss=3.1558  v=0.8845  p=2.2226  aux=0.0486  sigma=0.0000  ent=2.2471
+04:10:30 INFO  | Saved checkpoint checkpoints\net_gen0018.pt
+04:10:30 INFO  |   Generation 18 done in 17.5s  (sp=13.4s tr=4.0s)  lr=2.80e-04
+04:10:30 INFO  | --- Generation 19 ---
+04:10:46 INFO  |   Self-play: 64 games in 15.8s  (4.0 games/s)  avg_moves=23  sims=24  max_moves=35  X=30 O=34 draw=0  positions=1493  buffer=3036
+04:10:46 INFO  |   Saved 64 decisive games to replays/decisive/
+04:10:49 INFO  |   Train: 11 batches in 3.3s  loss=3.2492  v=0.9910  p=2.2066  aux=0.0515  sigma=0.0000  ent=2.2364
+04:10:50 INFO  | Saved checkpoint checkpoints\net_gen0019.pt
+04:10:50 INFO  |   Generation 19 done in 19.3s  (sp=15.8s tr=3.3s)  lr=4.60e-04
+04:10:50 INFO  | --- Generation 20 ---
+04:11:08 INFO  |   Self-play: 64 games in 18.1s  (3.5 games/s)  avg_moves=22  sims=28  max_moves=37  X=37 O=27 draw=0  positions=1425  buffer=4461
+04:11:08 INFO  |   Saved 64 decisive games to replays/decisive/
+04:11:13 INFO  |   Train: 17 batches in 5.5s  loss=3.2224  v=0.9965  p=2.1744  aux=0.0515  sigma=0.0000  ent=2.2008
+04:11:13 INFO  | Saved checkpoint checkpoints\net_gen0020.pt
+04:11:13 INFO  |   Generation 20 done in 23.7s  (sp=18.1s tr=5.5s)  lr=6.40e-04
+04:11:13 INFO  | --- Generation 21 ---
+04:11:35 INFO  |   Self-play: 64 games in 21.4s  (3.0 games/s)  avg_moves=23  sims=32  max_moves=40  X=27 O=37 draw=0  positions=1464  buffer=5925
+04:11:35 INFO  |   Saved 64 decisive games to replays/decisive/
+04:11:50 INFO  |   Train: 23 batches in 15.6s  loss=3.2086  v=0.9965  p=2.1618  aux=0.0503  sigma=0.0000  ent=2.1878
+04:11:50 INFO  | Saved checkpoint checkpoints\net_gen0021.pt
+04:11:50 INFO  |   Generation 21 done in 37.0s  (sp=21.4s tr=15.6s)  lr=8.20e-04
+04:11:50 INFO  | --- Generation 22 ---
+04:12:53 INFO  |   Self-play: 64 games in 63.1s  (1.0 games/s)  avg_moves=23  sims=37  max_moves=42  X=37 O=27 draw=0  positions=1469  buffer=7394
+04:12:53 INFO  |   Saved 64 decisive games to replays/decisive/
+04:13:20 INFO  |   Train: 28 batches in 26.8s  loss=3.1957  v=0.9977  p=2.1474  aux=0.0506  sigma=0.0000  ent=2.1714
+04:13:20 INFO  | Saved checkpoint checkpoints\net_gen0022.pt
+04:13:20 INFO  |   Generation 22 done in 90.0s  (sp=63.1s tr=26.8s)  lr=1.00e-03
+04:13:20 INFO  | --- Generation 23 ---
+04:15:26 INFO  |   Self-play: 64 games in 125.8s  (0.5 games/s)  avg_moves=22  sims=41  max_moves=45  X=35 O=29 draw=0  positions=1427  buffer=8821
+04:15:26 INFO  |   Saved 64 decisive games to replays/decisive/
+04:17:14 INFO  | === HexGo Training (Batched MCTS) ===
+04:17:14 INFO  | Device=cuda  Params=1,926,021  SIMS=100  GAMES/GEN=64  TOP_K=12  BATCH=256
+04:17:14 INFO  | Loaded checkpoints\net_latest.pt
+04:17:16 INFO  | torch.compile enabled (dynamic=True)
+04:17:16 INFO  | --- Generation 23 ---
+04:17:29 INFO  |   Self-play: 64 games in 13.5s  (4.7 games/s)  avg_moves=24  sims=20  max_moves=32  X=27 O=28 draw=9  positions=1531  buffer=1531
+04:17:29 INFO  |   Saved 55 decisive games to replays/decisive/
+04:17:33 INFO  |   Train: 10 batches in 3.5s  loss=3.0937  v=0.8551  p=2.1882  aux=0.0504  sigma=0.0000  ent=2.2081
+04:17:33 INFO  | Saved checkpoint checkpoints\net_gen0023.pt
+04:17:33 INFO  |   Generation 23 done in 17.1s  (sp=13.5s tr=3.5s)  lr=2.80e-04
+04:17:33 INFO  | --- Generation 24 ---
+04:17:48 INFO  |   Self-play: 64 games in 15.1s  (4.2 games/s)  avg_moves=22  sims=24  max_moves=35  X=25 O=38 draw=1  positions=1440  buffer=2971
+04:17:48 INFO  |   Saved 63 decisive games to replays/decisive/
+04:17:51 INFO  |   Train: 11 batches in 3.6s  loss=3.1689  v=0.9500  p=2.1680  aux=0.0509  sigma=0.0000  ent=2.1916
+04:17:51 INFO  | Saved checkpoint checkpoints\net_gen0024.pt
+04:17:51 INFO  |   Generation 24 done in 18.8s  (sp=15.1s tr=3.6s)  lr=4.60e-04
+04:17:51 INFO  | --- Generation 25 ---
+04:18:09 INFO  |   Self-play: 64 games in 18.0s  (3.6 games/s)  avg_moves=23  sims=28  max_moves=37  X=32 O=32 draw=0  positions=1469  buffer=4440
+04:18:09 INFO  |   Saved 64 decisive games to replays/decisive/
+04:18:22 INFO  |   Train: 17 batches in 12.9s  loss=3.1594  v=0.9811  p=2.1289  aux=0.0493  sigma=0.0000  ent=2.1563
+04:18:22 INFO  | Saved checkpoint checkpoints\net_gen0025.pt
+04:18:22 INFO  |   Generation 25 done in 31.0s  (sp=18.0s tr=12.9s)  lr=6.40e-04
+04:18:22 INFO  | --- Generation 26 ---
+04:19:15 INFO  |   Self-play: 64 games in 52.6s  (1.2 games/s)  avg_moves=22  sims=32  max_moves=40  X=36 O=28 draw=0  positions=1425  buffer=5865
+04:19:15 INFO  |   Saved 64 decisive games to replays/decisive/
+04:19:36 INFO  |   Train: 22 batches in 20.8s  loss=3.1549  v=0.9933  p=2.1352  aux=0.0263  sigma=0.0000  ent=2.1578
+04:19:36 INFO  | Saved checkpoint checkpoints\net_gen0026.pt
+04:19:36 INFO  |   Generation 26 done in 73.4s  (sp=52.6s tr=20.8s)  lr=8.20e-04
+04:19:36 INFO  | --- Generation 27 ---
+04:21:19 INFO  |   Self-play: 64 games in 102.9s  (0.6 games/s)  avg_moves=21  sims=37  max_moves=42  X=32 O=31 draw=1  positions=1372  buffer=7237
+04:21:19 INFO  |   Saved 63 decisive games to replays/decisive/
+04:22:06 INFO  |   Train: 28 batches in 47.3s  loss=3.1062  v=0.9811  p=2.1214  aux=0.0037  sigma=0.0000  ent=2.1483
+04:22:06 INFO  | Saved checkpoint checkpoints\net_gen0027.pt
+04:22:06 INFO  |   Generation 27 done in 150.2s  (sp=102.9s tr=47.3s)  lr=1.00e-03
+04:22:06 INFO  | --- Generation 28 ---
+04:23:35 INFO  | === HexGo Training (Batched MCTS) ===
+04:23:35 INFO  | Device=cuda  Params=1,926,021  SIMS=100  GAMES/GEN=64  TOP_K=12  BATCH=256
+04:23:35 INFO  | Loaded checkpoints\net_latest.pt
+04:23:37 INFO  | torch.compile enabled (dynamic=True)
+04:23:37 INFO  | --- Generation 28 ---
+04:24:11 INFO  |   Self-play: 64 games in 33.8s  (1.9 games/s)  avg_moves=23  sims=20  max_moves=32  X=28 O=31 draw=5  positions=1501  buffer=1501
+04:24:11 INFO  |   Saved 59 decisive games to replays/decisive/
+04:24:20 INFO  |   Train: 10 batches in 9.3s  loss=3.0110  v=0.8421  p=2.1678  aux=0.0011  sigma=0.0000  ent=2.1881
+04:24:20 INFO  | Saved checkpoint checkpoints\net_gen0028.pt
+04:24:20 INFO  |   Generation 28 done in 43.4s  (sp=33.8s tr=9.3s)  lr=2.80e-04
+04:24:20 INFO  | --- Generation 29 ---
+04:25:19 INFO  |   Self-play: 64 games in 58.8s  (1.1 games/s)  avg_moves=22  sims=24  max_moves=35  X=24 O=40 draw=0  positions=1408  buffer=2909
+04:25:19 INFO  |   Saved 64 decisive games to replays/decisive/
+04:25:39 INFO  |   Train: 11 batches in 19.5s  loss=3.1220  v=0.9900  p=2.1312  aux=0.0008  sigma=0.0000  ent=2.1542
+04:25:39 INFO  | Saved checkpoint checkpoints\net_gen0029.pt
+04:25:39 INFO  |   Generation 29 done in 78.3s  (sp=58.8s tr=19.5s)  lr=4.60e-04
+04:25:39 INFO  | --- Generation 30 ---
+04:26:58 INFO  |   Self-play: 64 games in 79.0s  (0.8 games/s)  avg_moves=21  sims=28  max_moves=37  X=31 O=33 draw=0  positions=1372  buffer=4281
+04:26:58 INFO  |   Saved 64 decisive games to replays/decisive/
+04:27:24 INFO  |   Train: 16 batches in 26.1s  loss=3.1212  v=0.9864  p=2.1343  aux=0.0005  sigma=0.0000  ent=2.1571
+04:27:24 INFO  | Saved checkpoint checkpoints\net_gen0030.pt
+04:27:24 INFO  |   Generation 30 done in 105.1s  (sp=79.0s tr=26.1s)  lr=6.40e-04
+04:27:24 INFO  | --- Generation 31 ---
+04:29:00 INFO  |   Self-play: 64 games in 95.8s  (0.7 games/s)  avg_moves=22  sims=32  max_moves=40  X=42 O=22 draw=0  positions=1436  buffer=5717
+04:29:00 INFO  |   Saved 64 decisive games to replays/decisive/
+04:29:36 INFO  |   Train: 22 batches in 35.9s  loss=3.1042  v=0.9926  p=2.1109  aux=0.0008  sigma=0.0000  ent=2.1384
+04:29:36 INFO  | Saved checkpoint checkpoints\net_gen0031.pt
+04:29:36 INFO  |   Generation 31 done in 131.8s  (sp=95.8s tr=35.9s)  lr=8.20e-04
+04:29:36 INFO  | --- Generation 32 ---
+04:31:26 INFO  |   Self-play: 64 games in 110.2s  (0.6 games/s)  avg_moves=22  sims=37  max_moves=42  X=36 O=28 draw=0  positions=1390  buffer=7107
+04:31:26 INFO  |   Saved 64 decisive games to replays/decisive/
+04:32:16 INFO  |   Train: 27 batches in 50.0s  loss=3.0896  v=0.9839  p=2.1048  aux=0.0009  sigma=0.0000  ent=2.1275
+04:32:16 INFO  | Saved checkpoint checkpoints\net_gen0032.pt
+04:32:16 INFO  |   Generation 32 done in 160.2s  (sp=110.2s tr=50.0s)  lr=1.00e-03
+04:32:16 INFO  | --- Generation 33 ---
+04:34:19 INFO  |   Self-play: 64 games in 123.1s  (0.5 games/s)  avg_moves=21  sims=41  max_moves=45  X=32 O=32 draw=0  positions=1359  buffer=8466
+04:34:19 INFO  |   Saved 64 decisive games to replays/decisive/
+04:35:17 INFO  |   Train: 33 batches in 58.4s  loss=3.0781  v=0.9814  p=2.0925  aux=0.0041  sigma=0.0000  ent=2.1194
+04:35:18 INFO  | Saved checkpoint checkpoints\net_gen0033.pt
+04:35:18 INFO  |   Generation 33 done in 181.5s  (sp=123.1s tr=58.4s)  lr=1.00e-03
+04:35:18 INFO  | --- Generation 34 ---
+04:39:12 INFO  |   Self-play: 64 games in 234.1s  (0.3 games/s)  avg_moves=22  sims=45  max_moves=47  X=25 O=39 draw=0  positions=1419  buffer=9885
+04:39:12 INFO  |   Saved 64 decisive games to replays/decisive/
+04:40:35 INFO  |   Train: 38 batches in 82.8s  loss=3.0906  v=0.9785  p=2.1101  aux=0.0020  sigma=0.0000  ent=2.1363
+04:40:35 INFO  | Saved checkpoint checkpoints\net_gen0034.pt
+04:40:35 INFO  |   Generation 34 done in 317.0s  (sp=234.1s tr=82.8s)  lr=1.00e-03
+04:40:35 INFO  | --- Generation 35 ---
+04:43:18 INFO  |   Self-play: 64 games in 163.6s  (0.4 games/s)  avg_moves=22  sims=49  max_moves=50  X=44 O=19 draw=1  positions=1393  buffer=11278
+04:43:18 INFO  |   Saved 63 decisive games to replays/decisive/
+04:44:43 INFO  |   Train: 44 batches in 84.4s  loss=3.0303  v=0.9358  p=2.0938  aux=0.0007  sigma=0.0000  ent=2.1135
+04:44:43 INFO  | Saved checkpoint checkpoints\net_gen0035.pt
+04:44:43 INFO  |   Generation 35 done in 248.1s  (sp=163.6s tr=84.4s)  lr=1.00e-03
+04:44:43 INFO  | --- Generation 36 ---
+04:48:44 INFO  |   Self-play: 64 games in 241.7s  (0.3 games/s)  avg_moves=30  sims=53  max_moves=52  X=23 O=37 draw=4  positions=1899  buffer=13177
+04:48:44 INFO  |   Saved 60 decisive games to replays/decisive/
+04:50:27 INFO  |   Train: 51 batches in 103.0s  loss=2.9954  v=0.8986  p=2.0959  aux=0.0009  sigma=0.0000  ent=2.1241
+04:50:27 INFO  | Saved checkpoint checkpoints\net_gen0036.pt
+04:50:27 INFO  |   Generation 36 done in 344.8s  (sp=241.7s tr=103.0s)  lr=1.00e-03
+04:50:27 INFO  | --- Generation 37 ---
+04:55:24 INFO  |   Self-play: 64 games in 297.1s  (0.2 games/s)  avg_moves=33  sims=58  max_moves=55  X=21 O=32 draw=11  positions=2133  buffer=15310
+04:55:25 INFO  |   Saved 53 decisive games to replays/decisive/
+04:57:21 INFO  |   Train: 59 batches in 116.6s  loss=2.8941  v=0.8248  p=2.0684  aux=0.0009  sigma=0.0000  ent=2.1013
+04:57:21 INFO  | Saved checkpoint checkpoints\net_gen0037.pt
+04:57:21 INFO  |   Generation 37 done in 413.7s  (sp=297.1s tr=116.6s)  lr=1.00e-03
+04:57:21 INFO  | --- Generation 38 ---
+05:02:28 INFO  |   Self-play: 64 games in 307.0s  (0.2 games/s)  avg_moves=32  sims=62  max_moves=57  X=36 O=17 draw=11  positions=2071  buffer=17381
+05:02:28 INFO  |   Saved 53 decisive games to replays/decisive/
+05:04:19 INFO  |   Train: 67 batches in 111.1s  loss=2.8277  v=0.7872  p=2.0396  aux=0.0008  sigma=0.0000  ent=2.0768
+05:04:19 INFO  | Saved checkpoint checkpoints\net_gen0038.pt
+05:04:19 INFO  |   Generation 38 done in 418.1s  (sp=307.0s tr=111.1s)  lr=1.00e-03
+05:04:19 INFO  | --- Generation 39 ---
+05:09:06 INFO  |   Self-play: 64 games in 286.4s  (0.2 games/s)  avg_moves=32  sims=66  max_moves=60  X=32 O=21 draw=11  positions=2040  buffer=19421
+05:09:06 INFO  |   Saved 53 decisive games to replays/decisive/
+05:10:52 INFO  |   Train: 75 batches in 106.5s  loss=2.7197  v=0.7510  p=1.9672  aux=0.0014  sigma=0.0000  ent=2.0033
+05:10:52 INFO  | Saved checkpoint checkpoints\net_gen0039.pt
+05:10:52 INFO  |   Generation 39 done in 393.0s  (sp=286.4s tr=106.5s)  lr=1.00e-03
+05:10:52 INFO  | --- Generation 40 ---
+05:15:42 INFO  |   Self-play: 64 games in 289.4s  (0.2 games/s)  avg_moves=29  sims=70  max_moves=62  X=33 O=23 draw=8  positions=1883  buffer=21304
+05:15:42 INFO  |   Saved 56 decisive games to replays/decisive/
+05:17:57 INFO  |   Train: 83 batches in 135.6s  loss=2.6738  v=0.7352  p=1.9377  aux=0.0010  sigma=0.0000  ent=1.9757
+05:17:57 INFO  | Saved checkpoint checkpoints\net_gen0040.pt
+05:17:57 INFO  |   Generation 40 done in 425.1s  (sp=289.4s tr=135.6s)  lr=9.99e-04
+05:17:57 INFO  | --- Generation 41 ---
+05:24:17 INFO  |   Self-play: 64 games in 380.0s  (0.2 games/s)  avg_moves=41  sims=74  max_moves=65  X=22 O=18 draw=24  positions=2596  buffer=23900
+05:24:17 INFO  |   Saved 40 decisive games to replays/decisive/
+05:26:20 INFO  |   Train: 93 batches in 122.7s  loss=2.5255  v=0.6632  p=1.8618  aux=0.0006  sigma=0.0000  ent=1.9003
+05:26:20 INFO  | Saved checkpoint checkpoints\net_gen0041.pt
+05:26:20 INFO  |   Generation 41 done in 502.8s  (sp=380.0s tr=122.7s)  lr=9.99e-04
+05:26:20 INFO  | --- Generation 42 ---
+05:33:06 INFO  |   Self-play: 64 games in 405.8s  (0.2 games/s)  avg_moves=38  sims=79  max_moves=67  X=26 O=21 draw=17  positions=2456  buffer=26356
+05:33:06 INFO  |   Saved 47 decisive games to replays/decisive/
+05:35:26 INFO  |   Train: 102 batches in 140.3s  loss=2.4149  v=0.6234  p=1.7909  aux=0.0006  sigma=0.0000  ent=1.8268
+05:35:26 INFO  | Saved checkpoint checkpoints\net_gen0042.pt
+05:35:26 INFO  |   Generation 42 done in 546.2s  (sp=405.8s tr=140.3s)  lr=9.99e-04
+05:35:26 INFO  | --- Generation 43 ---
+05:41:38 INFO  |   Self-play: 64 games in 371.6s  (0.2 games/s)  avg_moves=36  sims=83  max_moves=70  X=20 O=30 draw=14  positions=2327  buffer=28683
+05:41:38 INFO  |   Saved 50 decisive games to replays/decisive/
+05:44:06 INFO  |   Train: 112 batches in 148.1s  loss=2.3503  v=0.6136  p=1.7361  aux=0.0006  sigma=0.0000  ent=1.7757
+05:44:06 INFO  | Saved checkpoint checkpoints\net_gen0043.pt
+05:44:06 INFO  |   Generation 43 done in 519.8s  (sp=371.6s tr=148.1s)  lr=9.99e-04
+05:44:06 INFO  | --- Generation 44 ---
+05:51:28 INFO  |   Self-play: 64 games in 441.9s  (0.1 games/s)  avg_moves=47  sims=87  max_moves=72  X=19 O=19 draw=26  positions=2986  buffer=31669
+05:51:28 INFO  |   Saved 38 decisive games to replays/decisive/
+05:54:13 INFO  |   Train: 123 batches in 164.5s  loss=2.2337  v=0.5643  p=1.6689  aux=0.0005  sigma=0.0000  ent=1.7032
+05:54:13 INFO  | Saved checkpoint checkpoints\net_gen0044.pt
+05:54:13 INFO  |   Generation 44 done in 606.5s  (sp=441.9s tr=164.5s)  lr=9.99e-04
+05:54:13 INFO  | --- Generation 45 ---
+06:00:34 INFO  |   Self-play: 64 games in 381.1s  (0.2 games/s)  avg_moves=44  sims=91  max_moves=75  X=29 O=11 draw=24  positions=2847  buffer=34516
+06:00:34 INFO  |   Saved 40 decisive games to replays/decisive/
+06:03:31 INFO  |   Train: 134 batches in 177.0s  loss=2.1497  v=0.5234  p=1.6260  aux=0.0004  sigma=0.0000  ent=1.6602
+06:03:31 INFO  | Saved checkpoint checkpoints\net_gen0045.pt
+06:03:31 INFO  |   Generation 45 done in 558.1s  (sp=381.1s tr=177.0s)  lr=9.98e-04
+06:03:31 INFO  | --- Generation 46 ---
+06:10:25 INFO  |   Self-play: 64 games in 414.0s  (0.2 games/s)  avg_moves=41  sims=95  max_moves=77  X=22 O=22 draw=20  positions=2614  buffer=37130
+06:10:25 INFO  |   Saved 44 decisive games to replays/decisive/
+06:13:37 INFO  |   Train: 145 batches in 192.5s  loss=2.0670  v=0.5015  p=1.5652  aux=0.0003  sigma=0.0000  ent=1.6008
+06:13:37 INFO  | Saved checkpoint checkpoints\net_gen0046.pt
+06:13:37 INFO  |   Generation 46 done in 606.6s  (sp=414.0s tr=192.5s)  lr=9.98e-04
+06:13:37 INFO  | --- Generation 47 ---
+06:21:23 INFO  |   Self-play: 64 games in 465.8s  (0.1 games/s)  avg_moves=48  sims=100  max_moves=80  X=21 O=23 draw=20  positions=3081  buffer=40211
+06:21:23 INFO  |   Saved 44 decisive games to replays/decisive/
+06:25:05 INFO  |   Train: 157 batches in 221.3s  loss=2.0162  v=0.4920  p=1.5239  aux=0.0003  sigma=0.0000  ent=1.5568
+06:25:05 INFO  | Saved checkpoint checkpoints\net_gen0047.pt
+06:25:05 INFO  |   Generation 47 done in 687.3s  (sp=465.8s tr=221.3s)  lr=9.98e-04
+06:25:05 INFO  | --- Generation 48 ---
+06:33:05 INFO  |   Self-play: 64 games in 480.3s  (0.1 games/s)  avg_moves=56  sims=100  max_moves=80  X=19 O=16 draw=29  positions=3596  buffer=43807
+06:33:05 INFO  |   Saved 35 decisive games to replays/decisive/
+06:37:02 INFO  |   Train: 171 batches in 237.3s  loss=1.8998  v=0.4540  p=1.4455  aux=0.0003  sigma=0.0000  ent=1.4787
+06:37:02 INFO  | Saved checkpoint checkpoints\net_gen0048.pt
+06:37:02 INFO  |   Generation 48 done in 717.7s  (sp=480.3s tr=237.3s)  lr=9.97e-04
+06:37:02 INFO  | --- Generation 49 ---
+06:44:22 INFO  |   Self-play: 64 games in 439.9s  (0.1 games/s)  avg_moves=44  sims=100  max_moves=80  X=22 O=23 draw=19  positions=2792  buffer=46599
+06:44:22 INFO  |   Saved 45 decisive games to replays/decisive/
+06:48:40 INFO  |   Train: 182 batches in 257.7s  loss=1.8886  v=0.4581  p=1.4302  aux=0.0003  sigma=0.0000  ent=1.4602
+06:48:40 INFO  | Saved checkpoint checkpoints\net_gen0049.pt
+06:48:40 INFO  |   Generation 49 done in 697.6s  (sp=439.9s tr=257.7s)  lr=9.97e-04
+06:48:40 INFO  | --- Generation 50 ---
+06:55:49 INFO  |   Self-play: 64 games in 428.8s  (0.1 games/s)  avg_moves=47  sims=100  max_moves=80  X=18 O=21 draw=25  positions=3000  buffer=49599
+06:55:49 INFO  |   Saved 39 decisive games to replays/decisive/
+07:00:15 INFO  |   Train: 193 batches in 266.4s  loss=1.8404  v=0.4464  p=1.3938  aux=0.0003  sigma=0.0000  ent=1.4272
+07:00:15 INFO  | Saved checkpoint checkpoints\net_gen0050.pt
+07:00:15 INFO  |   Generation 50 done in 695.3s  (sp=428.8s tr=266.4s)  lr=9.97e-04
+07:00:15 INFO  | --- Generation 51 ---
+07:08:49 INFO  |   Self-play: 64 games in 513.6s  (0.1 games/s)  avg_moves=58  sims=100  max_moves=80  X=12 O=15 draw=37  positions=3740  buffer=50000
+07:08:49 INFO  |   Saved 27 decisive games to replays/decisive/
+07:13:20 INFO  |   Train: 195 batches in 271.3s  loss=1.7482  v=0.4017  p=1.3463  aux=0.0002  sigma=0.0000  ent=1.3794
+07:13:20 INFO  | Saved checkpoint checkpoints\net_gen0051.pt
+07:13:20 INFO  |   Generation 51 done in 785.0s  (sp=513.6s tr=271.3s)  lr=9.96e-04
+07:13:20 INFO  | --- Generation 52 ---
+07:21:34 INFO  |   Self-play: 64 games in 493.2s  (0.1 games/s)  avg_moves=55  sims=100  max_moves=80  X=14 O=15 draw=35  positions=3507  buffer=50000
+07:21:34 INFO  |   Saved 29 decisive games to replays/decisive/
+07:26:01 INFO  |   Train: 195 batches in 267.4s  loss=1.6491  v=0.3663  p=1.2826  aux=0.0002  sigma=0.0000  ent=1.3131
+07:26:01 INFO  | Saved checkpoint checkpoints\net_gen0052.pt
+07:26:01 INFO  |   Generation 52 done in 760.8s  (sp=493.2s tr=267.4s)  lr=9.96e-04
+07:26:01 INFO  | --- Generation 53 ---
+07:34:27 INFO  |   Self-play: 64 games in 505.7s  (0.1 games/s)  avg_moves=59  sims=100  max_moves=80  X=19 O=10 draw=35  positions=3773  buffer=50000
+07:34:27 INFO  |   Saved 29 decisive games to replays/decisive/
+07:38:56 INFO  |   Train: 195 batches in 269.0s  loss=1.5604  v=0.3415  p=1.2187  aux=0.0002  sigma=0.0000  ent=1.2487
+07:38:56 INFO  | Saved checkpoint checkpoints\net_gen0053.pt
+07:38:56 INFO  |   Generation 53 done in 774.8s  (sp=505.7s tr=269.0s)  lr=9.96e-04
+07:38:56 INFO  | --- Generation 54 ---
+07:46:03 INFO  |   Self-play: 64 games in 426.5s  (0.2 games/s)  avg_moves=53  sims=100  max_moves=80  X=14 O=19 draw=31  positions=3412  buffer=50000
+07:46:03 INFO  |   Saved 33 decisive games to replays/decisive/
+07:50:38 INFO  |   Train: 195 batches in 275.0s  loss=1.4988  v=0.3142  p=1.1844  aux=0.0002  sigma=0.0000  ent=1.2142
+07:50:38 INFO  | Saved checkpoint checkpoints\net_gen0054.pt
+07:50:38 INFO  |   Generation 54 done in 701.6s  (sp=426.5s tr=275.0s)  lr=9.95e-04
+07:50:38 INFO  | --- Generation 55 ---
+07:59:09 INFO  |   Self-play: 64 games in 511.6s  (0.1 games/s)  avg_moves=60  sims=100  max_moves=80  X=15 O=12 draw=37  positions=3843  buffer=50000
+07:59:09 INFO  |   Saved 27 decisive games to replays/decisive/
+08:03:33 INFO  |   Train: 195 batches in 263.3s  loss=1.4401  v=0.2935  p=1.1464  aux=0.0001  sigma=0.0000  ent=1.1796
+08:03:33 INFO  | Saved checkpoint checkpoints\net_gen0055.pt
+08:03:33 INFO  |   Generation 55 done in 775.0s  (sp=511.6s tr=263.3s)  lr=9.95e-04
+08:03:33 INFO  | --- Generation 56 ---
+08:12:12 INFO  |   Self-play: 64 games in 519.5s  (0.1 games/s)  avg_moves=61  sims=100  max_moves=80  X=10 O=14 draw=40  positions=3891  buffer=50000
+08:12:12 INFO  |   Saved 24 decisive games to replays/decisive/
+08:16:49 INFO  |   Train: 195 batches in 276.3s  loss=1.3404  v=0.2522  p=1.0881  aux=0.0001  sigma=0.0000  ent=1.1199
+08:16:49 INFO  | Saved checkpoint checkpoints\net_gen0056.pt
+08:16:49 INFO  |   Generation 56 done in 795.9s  (sp=519.5s tr=276.3s)  lr=9.94e-04
+08:16:49 INFO  | --- Generation 57 ---
+08:25:18 INFO  |   Self-play: 64 games in 509.6s  (0.1 games/s)  avg_moves=62  sims=100  max_moves=80  X=13 O=9 draw=42  positions=3970  buffer=50000
+08:25:18 INFO  |   Saved 22 decisive games to replays/decisive/
+08:29:54 INFO  |   Train: 195 batches in 276.2s  loss=1.2776  v=0.2258  p=1.0517  aux=0.0001  sigma=0.0000  ent=1.0796
+08:29:54 INFO  | Saved checkpoint checkpoints\net_gen0057.pt
+08:29:54 INFO  |   Generation 57 done in 785.9s  (sp=509.6s tr=276.2s)  lr=9.94e-04
+08:29:54 INFO  | --- Generation 58 ---
+08:38:02 INFO  |   Self-play: 64 games in 487.7s  (0.1 games/s)  avg_moves=53  sims=100  max_moves=80  X=19 O=14 draw=31  positions=3419  buffer=50000
+08:38:02 INFO  |   Saved 33 decisive games to replays/decisive/
+08:42:38 INFO  |   Train: 195 batches in 276.0s  loss=1.2638  v=0.2313  p=1.0324  aux=0.0001  sigma=0.0000  ent=1.0602
+08:42:38 INFO  | Saved checkpoint checkpoints\net_gen0058.pt
+08:42:38 INFO  |   Generation 58 done in 763.8s  (sp=487.7s tr=276.0s)  lr=9.93e-04
+08:42:38 INFO  | --- Generation 59 ---
+08:51:28 INFO  |   Self-play: 64 games in 530.0s  (0.1 games/s)  avg_moves=56  sims=100  max_moves=80  X=17 O=16 draw=31  positions=3560  buffer=50000
+08:51:28 INFO  |   Saved 33 decisive games to replays/decisive/
+08:56:08 INFO  |   Train: 195 batches in 279.8s  loss=1.2707  v=0.2440  p=1.0266  aux=0.0001  sigma=0.0000  ent=1.0538
+08:56:08 INFO  | Saved checkpoint checkpoints\net_gen0059.pt
+08:56:08 INFO  |   Generation 59 done in 809.9s  (sp=530.0s tr=279.8s)  lr=9.93e-04
+08:56:08 INFO  | --- Generation 60 ---
+09:05:31 INFO  |   Self-play: 64 games in 563.0s  (0.1 games/s)  avg_moves=64  sims=100  max_moves=80  X=10 O=11 draw=43  positions=4087  buffer=50000
+09:05:31 INFO  |   Saved 21 decisive games to replays/decisive/
+09:10:08 INFO  |   Train: 195 batches in 272.3s  loss=1.2099  v=0.2234  p=0.9865  aux=0.0001  sigma=0.0000  ent=1.0137
+09:10:08 INFO  | Saved checkpoint checkpoints\net_gen0060.pt
+09:10:08 INFO  |   Generation 60 done in 835.4s  (sp=563.0s tr=272.3s)  lr=9.92e-04
+09:10:08 INFO  | --- Generation 61 ---
+09:18:00 INFO  |   Self-play: 64 games in 472.4s  (0.1 games/s)  avg_moves=56  sims=100  max_moves=80  X=12 O=19 draw=33  positions=3601  buffer=50000
+09:18:00 INFO  |   Saved 31 decisive games to replays/decisive/
+09:22:26 INFO  |   Train: 195 batches in 265.7s  loss=1.1667  v=0.2128  p=0.9539  aux=0.0001  sigma=0.0000  ent=0.9805
+09:22:26 INFO  | Saved checkpoint checkpoints\net_gen0061.pt
+09:22:26 INFO  |   Generation 61 done in 738.2s  (sp=472.4s tr=265.7s)  lr=9.92e-04
+09:22:26 INFO  | --- Generation 62 ---
+09:32:07 INFO  |   Self-play: 64 games in 581.3s  (0.1 games/s)  avg_moves=70  sims=100  max_moves=80  X=6 O=9 draw=49  positions=4471  buffer=50000
+09:32:07 INFO  |   Saved 15 decisive games to replays/decisive/
+09:36:40 INFO  |   Train: 195 batches in 272.5s  loss=1.1432  v=0.2034  p=0.9398  aux=0.0001  sigma=0.0000  ent=0.9659
+09:36:40 INFO  | Saved checkpoint checkpoints\net_gen0062.pt
+09:36:40 INFO  |   Generation 62 done in 854.0s  (sp=581.3s tr=272.5s)  lr=9.91e-04
+09:36:40 INFO  | --- Generation 63 ---
+09:46:29 INFO  |   Self-play: 64 games in 589.1s  (0.1 games/s)  avg_moves=66  sims=100  max_moves=80  X=9 O=9 draw=46  positions=4252  buffer=50000
+09:46:29 INFO  |   Saved 18 decisive games to replays/decisive/
+09:50:57 INFO  |   Train: 195 batches in 267.8s  loss=1.1183  v=0.1981  p=0.9201  aux=0.0001  sigma=0.0000  ent=0.9462
+09:50:57 INFO  | Saved checkpoint checkpoints\net_gen0063.pt
+09:50:57 INFO  |   Generation 63 done in 857.0s  (sp=589.1s tr=267.8s)  lr=9.90e-04
+09:50:57 INFO  | --- Generation 64 ---
+09:59:30 INFO  |   Self-play: 64 games in 513.2s  (0.1 games/s)  avg_moves=63  sims=100  max_moves=80  X=12 O=12 draw=40  positions=4047  buffer=50000
+09:59:30 INFO  |   Saved 24 decisive games to replays/decisive/
+10:04:03 INFO  |   Train: 195 batches in 272.5s  loss=1.0968  v=0.1953  p=0.9014  aux=0.0000  sigma=0.0000  ent=0.9276
+10:04:03 INFO  | Saved checkpoint checkpoints\net_gen0064.pt
+10:04:03 INFO  |   Generation 64 done in 786.0s  (sp=513.2s tr=272.5s)  lr=9.90e-04
+10:04:03 INFO  | --- Generation 65 ---
+10:12:46 INFO  |   Self-play: 64 games in 522.8s  (0.1 games/s)  avg_moves=64  sims=100  max_moves=80  X=5 O=14 draw=45  positions=4120  buffer=50000
+10:12:46 INFO  |   Saved 19 decisive games to replays/decisive/
+10:17:20 INFO  |   Train: 195 batches in 274.5s  loss=1.0340  v=0.1721  p=0.8618  aux=0.0000  sigma=0.0000  ent=0.8869
+10:17:21 INFO  | Saved checkpoint checkpoints\net_gen0065.pt
+10:17:21 INFO  |   Generation 65 done in 797.5s  (sp=522.8s tr=274.5s)  lr=9.89e-04
+10:17:21 INFO  | --- Generation 66 ---
+10:26:41 INFO  |   Self-play: 64 games in 560.0s  (0.1 games/s)  avg_moves=63  sims=100  max_moves=80  X=8 O=11 draw=45  positions=4050  buffer=50000
+10:26:41 INFO  |   Saved 19 decisive games to replays/decisive/
+10:31:04 INFO  |   Train: 195 batches in 263.8s  loss=1.0170  v=0.1601  p=0.8569  aux=0.0000  sigma=0.0000  ent=0.8838
+10:31:04 INFO  | Saved checkpoint checkpoints\net_gen0066.pt
+10:31:04 INFO  |   Generation 66 done in 823.9s  (sp=560.0s tr=263.8s)  lr=9.89e-04
+10:31:04 INFO  | --- Generation 67 ---
+10:41:12 INFO  |   Self-play: 64 games in 607.9s  (0.1 games/s)  avg_moves=70  sims=100  max_moves=80  X=7 O=8 draw=49  positions=4482  buffer=50000
+10:41:12 INFO  |   Saved 15 decisive games to replays/decisive/
+10:45:51 INFO  |   Train: 195 batches in 278.7s  loss=0.9812  v=0.1444  p=0.8367  aux=0.0000  sigma=0.0000  ent=0.8604
+10:45:51 INFO  | Saved checkpoint checkpoints\net_gen0067.pt
+10:45:51 INFO  |   Generation 67 done in 886.8s  (sp=607.9s tr=278.7s)  lr=9.88e-04
+10:45:51 INFO  | --- Generation 68 ---
+10:55:15 INFO  |   Self-play: 64 games in 563.8s  (0.1 games/s)  avg_moves=66  sims=100  max_moves=80  X=10 O=8 draw=46  positions=4196  buffer=50000
+10:55:15 INFO  |   Saved 18 decisive games to replays/decisive/
+10:59:50 INFO  |   Train: 195 batches in 274.6s  loss=0.9687  v=0.1393  p=0.8293  aux=0.0000  sigma=0.0000  ent=0.8554
+10:59:50 INFO  | Saved checkpoint checkpoints\net_gen0068.pt
+10:59:50 INFO  |   Generation 68 done in 838.5s  (sp=563.8s tr=274.6s)  lr=9.87e-04
+10:59:50 INFO  | --- Generation 69 ---
+11:09:48 INFO  |   Self-play: 64 games in 598.1s  (0.1 games/s)  avg_moves=68  sims=100  max_moves=80  X=6 O=10 draw=48  positions=4324  buffer=50000
+11:09:48 INFO  |   Saved 16 decisive games to replays/decisive/
+11:14:27 INFO  |   Train: 195 batches in 278.8s  loss=0.9656  v=0.1389  p=0.8266  aux=0.0000  sigma=0.0000  ent=0.8494
+11:14:27 INFO  | Saved checkpoint checkpoints\net_gen0069.pt
+11:14:27 INFO  |   Generation 69 done in 877.0s  (sp=598.1s tr=278.8s)  lr=9.86e-04
+11:14:27 INFO  | --- Generation 70 ---
+11:23:29 INFO  |   Self-play: 64 games in 541.8s  (0.1 games/s)  avg_moves=65  sims=100  max_moves=80  X=14 O=5 draw=45  positions=4168  buffer=50000
+11:23:29 INFO  |   Saved 19 decisive games to replays/decisive/
+11:28:01 INFO  |   Train: 195 batches in 272.4s  loss=0.9434  v=0.1260  p=0.8174  aux=0.0000  sigma=0.0000  ent=0.8381
+11:28:01 INFO  | Saved checkpoint checkpoints\net_gen0070.pt
+11:28:01 INFO  |   Generation 70 done in 814.3s  (sp=541.8s tr=272.4s)  lr=9.86e-04
+11:28:01 INFO  | --- Generation 71 ---
+11:37:11 INFO  |   Self-play: 64 games in 549.6s  (0.1 games/s)  avg_moves=69  sims=100  max_moves=80  X=8 O=6 draw=50  positions=4441  buffer=50000
+11:37:11 INFO  |   Saved 14 decisive games to replays/decisive/
+11:41:45 INFO  |   Train: 195 batches in 274.3s  loss=0.9273  v=0.1169  p=0.8104  aux=0.0000  sigma=0.0000  ent=0.8312
+11:41:45 INFO  | Saved checkpoint checkpoints\net_gen0071.pt
+11:41:45 INFO  |   Generation 71 done in 824.1s  (sp=549.6s tr=274.3s)  lr=9.85e-04
+11:41:45 INFO  | --- Generation 72 ---
+11:51:37 INFO  |   Self-play: 64 games in 591.4s  (0.1 games/s)  avg_moves=68  sims=100  max_moves=80  X=9 O=6 draw=49  positions=4343  buffer=50000
+11:51:37 INFO  |   Saved 15 decisive games to replays/decisive/
+11:56:13 INFO  |   Train: 195 batches in 276.5s  loss=0.9099  v=0.1207  p=0.7892  aux=0.0000  sigma=0.0000  ent=0.8125
+11:56:13 INFO  | Saved checkpoint checkpoints\net_gen0072.pt
+11:56:13 INFO  |   Generation 72 done in 868.1s  (sp=591.4s tr=276.5s)  lr=9.84e-04
+11:56:13 INFO  | --- Generation 73 ---
+12:06:39 INFO  |   Self-play: 64 games in 625.4s  (0.1 games/s)  avg_moves=67  sims=100  max_moves=80  X=7 O=8 draw=49  positions=4301  buffer=50000
+12:06:39 INFO  |   Saved 15 decisive games to replays/decisive/
+12:11:18 INFO  |   Train: 195 batches in 279.1s  loss=0.9076  v=0.1089  p=0.7987  aux=0.0000  sigma=0.0000  ent=0.8196
+12:11:18 INFO  | Saved checkpoint checkpoints\net_gen0073.pt
+12:11:18 INFO  |   Generation 73 done in 904.5s  (sp=625.4s tr=279.1s)  lr=9.83e-04
+12:11:18 INFO  | --- Generation 74 ---
+12:20:47 INFO  |   Self-play: 64 games in 569.1s  (0.1 games/s)  avg_moves=60  sims=100  max_moves=80  X=14 O=12 draw=38  positions=3858  buffer=50000
+12:20:47 INFO  |   Saved 26 decisive games to replays/decisive/
+12:25:27 INFO  |   Train: 195 batches in 280.1s  loss=0.9345  v=0.1210  p=0.8134  aux=0.0000  sigma=0.0000  ent=0.8373
+12:25:27 INFO  | Saved checkpoint checkpoints\net_gen0074.pt
+12:25:27 INFO  |   Generation 74 done in 849.3s  (sp=569.1s tr=280.1s)  lr=9.83e-04
+12:25:27 INFO  | --- Generation 75 ---
+12:40:52 INFO  | === HexGo Training (Batched MCTS) ===
+12:40:52 INFO  | Device=cuda  Params=1,926,021  SIMS=100  GAMES/GEN=64  TOP_K=12  BATCH=256
+12:40:52 INFO  | Loaded checkpoints\net_latest.pt
+12:40:54 INFO  | torch.compile enabled (dynamic=True)
+12:40:54 INFO  | --- Generation 75 ---
+12:41:10 INFO  |   Self-play: 64 games in 15.7s  (4.1 games/s)  avg_moves=28  sims=20  max_moves=32  X=16 O=9 draw=39  positions=1798  buffer=1798
+12:41:10 INFO  |   Saved 25 decisive games to replays/decisive/
+12:41:14 INFO  |   Train: 10 batches in 3.9s  loss=3.3174  v=0.2716  p=3.0458  aux=0.0000  sigma=0.0000  ent=0.8220
+12:41:14 INFO  | Saved checkpoint checkpoints\net_gen0075.pt
+12:41:14 INFO  |   Generation 75 done in 19.6s  (sp=15.7s tr=3.9s)  lr=2.80e-04
+12:41:14 INFO  | --- Generation 76 ---
+12:41:34 INFO  |   Self-play: 64 games in 20.5s  (3.1 games/s)  avg_moves=29  sims=24  max_moves=35  X=11 O=15 draw=38  positions=1858  buffer=3656
+12:41:34 INFO  |   Saved 26 decisive games to replays/decisive/
+12:41:39 INFO  |   Train: 14 batches in 4.7s  loss=2.0385  v=0.2783  p=1.7601  aux=0.0000  sigma=0.0000  ent=1.5452
+12:41:39 INFO  | Saved checkpoint checkpoints\net_gen0076.pt
+12:41:39 INFO  |   Generation 76 done in 25.3s  (sp=20.5s tr=4.7s)  lr=4.60e-04
+12:41:39 INFO  | --- Generation 77 ---
+12:42:04 INFO  |   Self-play: 64 games in 24.6s  (2.6 games/s)  avg_moves=30  sims=28  max_moves=37  X=23 O=15 draw=26  positions=1892  buffer=5548
+12:42:04 INFO  |   Saved 38 decisive games to replays/decisive/
+12:42:11 INFO  |   Train: 21 batches in 7.2s  loss=2.3604  v=0.3857  p=1.9747  aux=0.0000  sigma=0.0000  ent=1.9627
+12:42:11 INFO  | Saved checkpoint checkpoints\net_gen0077.pt
+12:42:11 INFO  |   Generation 77 done in 31.9s  (sp=24.6s tr=7.2s)  lr=6.40e-04
+12:42:11 INFO  | --- Generation 78 ---
+12:43:22 INFO  |   Self-play: 64 games in 71.1s  (0.9 games/s)  avg_moves=31  sims=32  max_moves=40  X=19 O=16 draw=29  positions=1972  buffer=7520
+12:43:22 INFO  |   Saved 35 decisive games to replays/decisive/
+12:43:51 INFO  |   Train: 29 batches in 28.9s  loss=2.3516  v=0.4146  p=1.9370  aux=0.0000  sigma=0.0000  ent=1.9577
+12:43:51 INFO  | Saved checkpoint checkpoints\net_gen0078.pt
+12:43:51 INFO  |   Generation 78 done in 100.1s  (sp=71.1s tr=28.9s)  lr=8.20e-04
+12:43:51 INFO  | --- Generation 79 ---
+12:47:25 INFO  |   Self-play: 64 games in 214.0s  (0.3 games/s)  avg_moves=33  sims=37  max_moves=42  X=15 O=13 draw=36  positions=2108  buffer=9628
+12:47:25 INFO  |   Saved 28 decisive games to replays/decisive/
+12:49:29 INFO  |   Train: 37 batches in 123.4s  loss=2.0963  v=0.3328  p=1.7635  aux=0.0000  sigma=0.0000  ent=1.7913
+12:49:29 INFO  | Saved checkpoint checkpoints\net_gen0079.pt
+12:49:29 INFO  |   Generation 79 done in 337.5s  (sp=214.0s tr=123.4s)  lr=1.00e-03
+12:49:29 INFO  | --- Generation 80 ---
+13:01:02 INFO  |   Self-play: 64 games in 692.9s  (0.1 games/s)  avg_moves=34  sims=41  max_moves=45  X=13 O=16 draw=35  positions=2202  buffer=11830
+13:01:02 INFO  |   Saved 29 decisive games to replays/decisive/
