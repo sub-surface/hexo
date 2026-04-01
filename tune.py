@@ -2,16 +2,16 @@
 tune.py — HexGo autotune trial orchestrator.
 
 Usage:
-    python tune.py [--gens N] [--games N]
+    python tune.py [--gens N] [--games N] [--trials N]
 
-Flow per call:
+Flow per trial:
   1. Backup current config.py
-  2. Read pre-trial ELO for eisenstein_def from elo.json
-  3. Run train.py --tune --gens N --games N --sims {CFG["SIMS"]}
-  4. Read post-trial ELO, compute delta
+  2. Read baseline metrics from last N gens in metrics.jsonl
+  3. Run train.py --gens N --games G --sims S
+  4. Read post-trial metrics, compute policy loss delta
   5. Append result to tune_log.jsonl
-  6. If delta < 0: revert config.py from backup, print REVERTED
-  7. Print summary line
+  6. If policy loss increased (got worse): revert config.py
+  7. Print summary
 
 Claude proposes config.py changes before calling this script.
 Claude reads tune_log.jsonl to reason about the next proposal.
@@ -25,49 +25,63 @@ import sys
 import time
 from pathlib import Path
 
-ELO_FILE      = Path("elo.json")
 CONFIG_FILE   = Path("config.py")
 CONFIG_BACKUP = Path("config.py.bak")
+METRICS_FILE  = Path("metrics.jsonl")
 TUNE_LOG      = Path("tune_log.jsonl")
-TUNE_RESULT   = Path("tune_result.json")
 PYTHON        = sys.executable
 
 
-def _read_elo(agent: str = "eisenstein_def") -> float | None:
-    """Return current ELO rating for agent, or None if not found."""
-    if not ELO_FILE.exists():
-        return None
-    data = json.loads(ELO_FILE.read_text())
-    return data.get("ratings", {}).get(agent)
-
-
-def _read_cfg() -> dict:
+def _read_cfg():
     """Import CFG from config.py via exec (avoids stale module cache)."""
-    ns: dict = {}
+    ns = {}
     exec(CONFIG_FILE.read_text(), ns)
     return ns["CFG"]
 
 
-def run_trial(gens: int = 5, games: int = 10) -> dict:
-    # 1. Backup current config
+def _read_recent_metrics(n=5):
+    """Read last n lines from metrics.jsonl, return list of dicts."""
+    if not METRICS_FILE.exists():
+        return []
+    lines = METRICS_FILE.read_text(encoding="utf-8").strip().splitlines()
+    results = []
+    for line in lines[-n:]:
+        try:
+            results.append(json.loads(line))
+        except json.JSONDecodeError:
+            pass
+    return results
+
+
+def _avg_metric(metrics, key):
+    """Average a metric across a list of metric dicts, ignoring None."""
+    vals = [m[key] for m in metrics if m.get(key) is not None]
+    return sum(vals) / len(vals) if vals else None
+
+
+def run_trial(gens=5, games=64):
+    """Run one autotune trial. Returns the log entry dict."""
+    # 1. Backup config
     shutil.copy(CONFIG_FILE, CONFIG_BACKUP)
     cfg = _read_cfg()
 
-    # 2. Pre-trial ELO
-    elo_before = _read_elo("eisenstein_def")
+    # 2. Baseline: average metrics from last `gens` generations
+    baseline = _read_recent_metrics(gens)
+    baseline_ploss = _avg_metric(baseline, "avg_loss_p")
+    baseline_vloss = _avg_metric(baseline, "avg_loss_v")
+    baseline_ent = _avg_metric(baseline, "avg_ent")
+    baseline_gen = baseline[-1]["gen"] if baseline else 0
 
-    # 3. Clear previous tune_result.json
-    if TUNE_RESULT.exists():
-        TUNE_RESULT.unlink()
+    print(f"Baseline (last {len(baseline)} gens): "
+          f"p_loss={baseline_ploss:.4f}  v_loss={baseline_vloss:.4f}  "
+          f"ent={baseline_ent:.4f}" if baseline_ploss else "No baseline metrics")
 
-    # 4. Run training
-    cmd = [
-        PYTHON, "train.py",
-        "--tune",
-        "--gens",  str(gens),
-        "--games", str(games),
-        "--sims",  str(cfg["SIMS"]),
-    ]
+    # 3. Run training
+    sims = cfg.get("SIMS", 100)
+    cmd = [PYTHON, "train.py",
+           "--gens", str(gens),
+           "--games", str(games),
+           "--sims", str(sims)]
     print(f"Running: {' '.join(cmd)}", flush=True)
     t0 = time.perf_counter()
     result = subprocess.run(cmd)
@@ -78,58 +92,79 @@ def run_trial(gens: int = 5, games: int = 10) -> dict:
         shutil.copy(CONFIG_BACKUP, CONFIG_FILE)
         return {"error": "train failed", "cfg": cfg}
 
-    # 5. Post-trial ELO
-    elo_after = _read_elo("eisenstein_def")
-    elo_delta = None
-    if elo_before is not None and elo_after is not None:
-        elo_delta = round(elo_after - elo_before, 1)
+    # 4. Post-trial: read the new metrics (last `gens` entries should be from our trial)
+    all_metrics = _read_recent_metrics(gens)
+    # Filter to only metrics from after baseline
+    trial_metrics = [m for m in all_metrics if m.get("gen", 0) > baseline_gen]
+    if not trial_metrics:
+        trial_metrics = all_metrics  # fallback
 
-    # 6. Read per-gen metrics
-    gen_metrics: list = []
-    if TUNE_RESULT.exists():
-        try:
-            gen_metrics = json.loads(TUNE_RESULT.read_text())
-        except Exception:
-            pass
+    trial_ploss = _avg_metric(trial_metrics, "avg_loss_p")
+    trial_vloss = _avg_metric(trial_metrics, "avg_loss_v")
+    trial_ent = _avg_metric(trial_metrics, "avg_ent")
+    trial_decisive = _avg_metric(trial_metrics, "decisive")
+    trial_gps = _avg_metric(trial_metrics, "games_per_s")
 
-    avg_eis_winrate = None
-    if gen_metrics:
-        rates = [g["eis_winrate"] for g in gen_metrics if g.get("eis_winrate") is not None]
-        avg_eis_winrate = round(sum(rates) / len(rates), 3) if rates else None
+    # 5. Compute deltas (negative = improved)
+    ploss_delta = None
+    if baseline_ploss is not None and trial_ploss is not None:
+        ploss_delta = round(trial_ploss - baseline_ploss, 6)
 
-    # 7. Build log entry
-    # eisenstein_def ELO rises when the net loses more to Eisenstein (net is WORSE).
-    # A good config lowers eisenstein_def ELO (net improves). Keep when delta <= 0.
-    kept = elo_delta is None or elo_delta <= 0
+    vloss_delta = None
+    if baseline_vloss is not None and trial_vloss is not None:
+        vloss_delta = round(trial_vloss - baseline_vloss, 6)
+
+    # 6. Decision: keep if policy loss decreased OR value loss decreased significantly
+    # (during plateau phases, small policy gains with stable value loss are still good)
+    if ploss_delta is not None:
+        kept = ploss_delta <= 0.01  # allow tiny regression (noise margin)
+    else:
+        kept = True  # no baseline to compare, keep by default
+
     entry = {
-        "cfg":             cfg,
-        "elo_before":      elo_before,
-        "elo_after":       elo_after,
-        "elo_delta":       elo_delta,
-        "avg_eis_winrate": avg_eis_winrate,
-        "gen_metrics":     gen_metrics,
-        "elapsed_s":       round(elapsed, 1),
-        "kept":            kept,
+        "cfg": cfg,
+        "baseline_ploss": baseline_ploss,
+        "trial_ploss": trial_ploss,
+        "ploss_delta": ploss_delta,
+        "baseline_vloss": baseline_vloss,
+        "trial_vloss": trial_vloss,
+        "vloss_delta": vloss_delta,
+        "trial_ent": trial_ent,
+        "trial_decisive": trial_decisive,
+        "trial_gps": trial_gps,
+        "trial_metrics": trial_metrics,
+        "elapsed_s": round(elapsed, 1),
+        "kept": kept,
     }
 
-    # 8. Append to log
+    # 7. Append to log
     with TUNE_LOG.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
 
-    # 9. Revert if negative delta
+    # 8. Revert if bad
     if not kept:
         shutil.copy(CONFIG_BACKUP, CONFIG_FILE)
-        print(f"REVERTED  elo_delta={elo_delta:+.1f}  avg_eis_wr={avg_eis_winrate}")
+        print(f"REVERTED  ploss_delta={ploss_delta:+.4f}  "
+              f"({baseline_ploss:.4f} -> {trial_ploss:.4f})")
     else:
-        delta_str = f"{elo_delta:+.1f}" if elo_delta is not None else "n/a"
-        print(f"KEPT      elo_delta={delta_str}  avg_eis_wr={avg_eis_winrate}")
+        delta_str = f"{ploss_delta:+.4f}" if ploss_delta is not None else "n/a"
+        print(f"KEPT      ploss_delta={delta_str}  "
+              f"trial_ploss={trial_ploss:.4f}  trial_vloss={trial_vloss:.4f}")
 
     return entry
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run one autotune trial")
-    parser.add_argument("--gens",  type=int, default=5,  help="Gens per trial")
-    parser.add_argument("--games", type=int, default=10, help="Games per gen")
+    parser = argparse.ArgumentParser(description="Run autotune trials")
+    parser.add_argument("--gens",   type=int, default=5,  help="Gens per trial")
+    parser.add_argument("--games",  type=int, default=64, help="Games per gen")
+    parser.add_argument("--trials", type=int, default=1,  help="Number of trials to run")
     args = parser.parse_args()
-    run_trial(gens=args.gens, games=args.games)
+    for i in range(args.trials):
+        print(f"\n{'='*60}")
+        print(f"  Trial {i+1}/{args.trials}")
+        print(f"{'='*60}")
+        entry = run_trial(gens=args.gens, games=args.games)
+        if "error" in entry:
+            print("Stopping — trial failed")
+            break

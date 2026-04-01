@@ -2,17 +2,20 @@
 
 ## Overview
 
-Two search modes:
+Three search modes:
 
 | Mode | Function | Value source | Used by |
 |------|----------|-------------|---------|
 | Pure rollout | `mcts(game, sims)` | Random playout | `MCTSAgent` in ELO |
-| AlphaZero | `mcts_with_net(game, net, sims)` | Net value + policy priors | ELO `NetAgent` only |
-| Inline policy | `mcts_policy()` in train.py | Net via `InferenceServer` | Training self-play |
+| AlphaZero | `mcts_with_net(game, net, sims)` | Net value + policy priors | ELO `NetAgent`, `tournament.py` |
+| Batched lockstep | `batched_self_play()` in train.py | Net via direct batch GPU calls | Training self-play |
 
-`mcts_policy()` in `train.py` is the primary training path and uses the
-`InferenceServer` for batched evaluation. `mcts_with_net` is used only in ELO
-evaluation matches.
+`batched_self_play()` in `train.py` is the primary training path. All N games
+run in lockstep: selection for all games, batch GPU eval of all leaves, backprop
+for all games. No threads, no GIL. TOP_K=16 move pruning per position.
+Uses `move_to_grid()` to index the spatial logit map `[B, S, S]`.
+
+`mcts_with_net` is used only in ELO evaluation matches and `tournament.py`.
 
 ---
 
@@ -83,21 +86,15 @@ to align with the backprop convention (`value` from `node.player`'s perspective)
 
 ---
 
-## Tree Reuse (`mcts_policy` in train.py)
+## Batched Lockstep MCTS (train.py)
 
-`mcts_policy()` returns `(chosen_move, visit_distribution, legal_moves, new_root)`.
-On the next call, if `prev_root` has a child matching the game state, that
-subtree is reused with fresh Dirichlet noise applied. Saves approximately
-`N_SIMS / branching_factor` simulations per move.
+`batched_self_play()` replaces the threaded `mcts_policy()` + `InferenceServer` approach:
 
----
+1. All N games are initialized; root nodes created from a single batched GPU call.
+2. Per sim: selection traversal for all active games, batch GPU eval of unexpanded leaves, expand with TOP_K=16 pruned children, backprop + unmake.
+3. After all sims: temperature-based move selection, record spatial `policy_target` `[S, S]` and `legal_mask` `[S, S]` planes.
 
-## ZOI Integration
-
-`mcts_policy` calls `game.zoi_moves(CFG["ZOI_MARGIN"])` instead of
-`game.legal_moves()` to restrict expansion to the active play area.
-The fallback to full `legal_moves()` activates automatically when ZOI
-coverage equals full candidate set.
+No tree reuse between moves (fresh root each turn). ZOI pruning via `game.zoi_moves(ZOI_MARGIN, ZOI_LOOKBACK)` restricts candidates at every expansion.
 
 ---
 

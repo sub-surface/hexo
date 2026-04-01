@@ -10,11 +10,17 @@ The architecture and mathematical foundation are **genuinely impressive** for a 
 The Z[ω] isomorphism, HexConv2d, D6 augmentation, GlobalPoolBranch, and the overall AlphaZero
 pipeline are implemented correctly in their essentials and show real depth of understanding.
 
-**As of 2026-03-30, all critical and important correctness bugs have been fixed, and the training
-pipeline has been further improved with hyperparameter tuning, recency-weighted sampling, and
-auxiliary heads.** A FastAPI dashboard (server.py + dashboard.html) provides live monitoring,
-training controls, and a replay viewer. The checkpoint tournament system was removed to eliminate
-a crash source; evaluation is now Eisenstein-only (~5s/gen vs. ~177s/gen).
+**As of the latest revision, the training pipeline has been substantially rearchitected:**
+- Spatial policy head (`policy_logits → [B, S, S]`) replaces per-move forward passes
+- Batched lockstep MCTS (`batched_self_play()`) replaces threaded InferenceServer for training
+- Network scaled to 128ch/6blk (~1.9M params) from 64ch/4blk (~480K)
+- ELO evaluation removed from training loop; `tournament.py` added for standalone checkpoint tournaments
+- `tune.py` uses policy loss delta instead of ELO vs Eisenstein
+- Curriculum for sims (16→100) and max_moves (30→100)
+- Fully vectorized spatial masked softmax policy loss
+
+A FastAPI dashboard (server.py + dashboard.html) provides live monitoring,
+training controls, and a replay viewer.
 
 Previously identified critical bugs (now fixed):
 1. ~~**Autotune anti-optimizing**~~ — reward signal inverted; fixed in `tune.py`.
@@ -43,10 +49,10 @@ and the EisensteinGreedyAgent.
 ### Neural Network Architecture (`net.py`)
 HexConv2d correctly masks the two non-adjacent corners `[0,0]` and `[2,2]` of 3×3 kernels.
 D6_MATRICES implements the correct dihedral group D6 for Z[ω] (determinant-1 rotations, det=-1
-reflections, group closed under composition). GlobalPoolBranch shapes are correct. The 11-channel
-input encoding (4 P1-history + 4 P2-history + 2 current + to-move) matches AlphaZero's temporal
-encoding design. At ~121K params on an RTX 2060, the capacity/speed tradeoff is appropriate for
-Phase 1.
+reflections, group closed under composition). GlobalPoolBranch shapes are correct. The 17-channel
+input encoding (2 current + to-move + 8 history + 6 axis-chain planes) provides rich spatial
+features. Spatial policy head (`policy_logits → [B, S, S]`) enables single-pass evaluation.
+At ~1.9M params (128ch/6blk) on an RTX 2060, capacity is substantial for the game complexity.
 
 ### MCTS Backpropagation Convention
 The multi-placement backprop rule (`negate only when node.parent.player != node.player`) correctly
@@ -54,10 +60,10 @@ handles the 1-2-2 turn structure. This is non-trivial to get right and is implem
 in the pure-rollout path.
 
 ### Infrastructure
-The `InferenceServer` batching design is correct in principle. Persistent cross-gen cache,
-`pin_memory` async transfers, overlapped training, and `PerfTracker` with bottleneck warnings
-are all production-quality additions. `load_latest()` quarantine for incompatible checkpoints
-prevents silent data loss.
+The batched lockstep MCTS in `train.py` solves the GIL-induced batching problem that plagued
+the threaded InferenceServer approach. The `InferenceServer` is retained for dashboard/elo/tournament
+use. `load_latest()` quarantine for incompatible checkpoints prevents silent data loss.
+`tournament.py` provides standalone round-robin checkpoint evaluation.
 
 ### EisensteinGreedyAgent
 The `_chain_if_placed` implementation is correct and efficient — no board mutations, no off-by-one
@@ -91,11 +97,13 @@ requiring any learned weights.
 
 **D6 augmentation probs corruption** → Fixed: `sample['probs'].copy()` in `d6_augment_sample`.
 
-### Checkpoint Tournament Removed
+### Training Loop Rearchitected
 
-`_tourney_promote()` deleted entirely. Loading old checkpoints into a `torch.compile`d
-(`OptimizedModule`) wrapper caused `RuntimeError: Error(s) in loading state_dict`. The
-tournament was also consuming 100–177s/gen. Replaced by Eisenstein-only eval (~5s/gen).
+- Threaded InferenceServer self-play replaced with batched lockstep MCTS (`batched_self_play()`)
+- ELO evaluation removed from training loop — pure self-play + training only
+- Standalone `tournament.py` for round-robin checkpoint evaluation
+- `tune.py` rewritten to use policy loss delta from `metrics.jsonl` instead of ELO vs Eisenstein
+- `torch.compile` disabled (3-4GB RAM usage during compilation)
 
 ## What's Still Open
 
@@ -135,24 +143,29 @@ produced with the inverted reward signal and are not meaningful.
 
 | Feature | Research Target | Current | Gap |
 |---------|----------------|---------|-----|
-| SIMS | 200-600 (Phase 1) | 50 (25% games), 6–25 (75%) | Large — RTX 2060 constraint |
-| CPUCT | 2.5 (Phase 1) | **2.0** ✓ | Minor; raise to 2.5 if ELO stalls |
+| SIMS | 200-600 (Phase 1) | 100 (curriculum from 16) | Moderate — RTX 2060 constraint |
+| CPUCT | 2.5 (Phase 1) | **1.5** | Lowered from 2.0; raise if ELO stalls |
 | Board size | 18×18 | 18×18 | ✓ |
-| Network depth | 8-15 blocks | 2 blocks | Sufficient for Phase 1 validation |
-| Dirichlet alpha | 0.08-0.10 (10/\|ZoI\|) | **0.09** ✓ | ✓ |
+| Network depth | 8-15 blocks | **6 blocks** | Closer to research target |
+| Network width | 128-256 ch | **128 ch** ✓ | ✓ |
+| Total params | 2-10M | **~1.9M** | Approaching research range |
+| Dirichlet alpha | 0.08-0.10 (10/\|ZoI\|) | **0.15** | Raised for more exploration |
 | ZoI margin | 3 minimum | 6 | Conservative but correct |
 | Auxiliary heads | KataGo ownership+threat | **Done** ✓ | Thin 1×1 conv heads, AUX_LOSS=0.1 each |
 | Replay sampling | Recent-biased | **75/25** ✓ | ✓ |
-| MCTS | PUCT standard | PUCT (Python) | No Gumbel search, no C++ — Phase 1 acceptable |
+| MCTS | PUCT standard | PUCT (Python, batched lockstep) | No C++ needed — lockstep solves GIL batching |
+| Policy head | Spatial | **Spatial** ✓ | `policy_logits → [B, S, S]`, single pass |
+| Training batch | 256+ | **256** ✓ | ✓ |
 
 ---
 
 ## Next Steps
 
-All improvements for Phase 1 are complete. Ready to run sustained baseline:
+Major architectural changes complete. Ready to run sustained baseline:
 
-1. **Run 50+ gen baseline** — verify ELO vs `eisenstein_def` improves monotonically.
-2. **ZOI lookback** — increase from 8 to 16 if ELO stalls at mid-game complexity.
-3. **Scale trunk** (5a) — 4 blocks / 64 channels (~480K params) only after ELO plateau.
+1. **Run sustained multi-gen baseline** — verify policy loss decreases and decisive game rate increases.
+2. **Tournament evaluation** — use `tournament.py` to compare checkpoint progression.
+3. **ZOI lookback tuning** — increase if mid-game complexity stalls.
 
-A 50-gen run with the improved pipeline should show clear ELO progress vs `eisenstein_def`.
+The batched lockstep MCTS + spatial policy head should provide significantly faster
+training iterations than the previous threaded approach.

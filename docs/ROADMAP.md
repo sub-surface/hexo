@@ -1,7 +1,7 @@
 # HexGo — Roadmap
 
 Z[ω] self-play ladder: arithmetic progressions, Eisenstein symmetry, emergent structure.
-Current baseline: ~121K params, 8 workers, RTX 2060, ~30–60s/gen.
+Current baseline: ~1.9M params (128ch/6blk), batched lockstep MCTS (no threads), RTX 2060.
 
 ---
 
@@ -43,7 +43,7 @@ Connection to combinatorics: W(6;2) = 1132 (van der Waerden); the Erdős-Selfrid
 - [x] **1d. Cosine temperature annealing** — `temp = max(0.05, cos(π × move / T))`
 - [x] **1e. TD-lambda value targets** — `z_t = 0.99^(T−t) × z_final`
 - [x] **1f. History planes** — 11-channel input (4 P1-history + 4 P2-history + current × 2 + to-move)
-- [x] **1g. Parameter golf policy head** — `p_conv` 4ch; `p_fc` 32 hidden; ~121K total params
+- [x] **1g. Spatial policy head** — `policy_logits(features) → [B, S, S]` logit map; single forward pass for full policy; `move_to_grid()` for coordinate indexing; ~1.9M total params (128ch/6blk)
 - [x] **1h. INT8 quantization utility** — `quantize_for_inference(net)` via `torch.ao.quantization`
 - [x] **1i. HexConv2d** — masks non-hex corners `[0,0]` and `[2,2]` in all ResBlock kernels
 - [x] **1j. D6 data augmentation** — 12 transforms applied at `train_batch` time
@@ -56,15 +56,15 @@ Connection to combinatorics: W(6;2) = 1132 (van der Waerden); the Erdős-Selfrid
 
 - [x] **2a. Zobrist-keyed buffer deduplication** — per-gen hash set prevents near-duplicate positions
 - [x] **2b. Self-play curriculum** — playout cap randomization (25% full / 75% reduced)
-- [x] **2c. Checkpoint tournament** — new net must beat ≥55% of top-K pool to be promoted
+- [x] **2c. Checkpoint tournament** — moved to standalone `tournament.py` for round-robin evaluation (removed from training loop)
 
 ---
 
 ## Phase 3 — Infrastructure
 
-- [x] **3a. Overlapped async self-play** — training runs concurrently with self-play via `concurrent.futures`
+- [x] **3a. Batched lockstep self-play** — replaced threaded InferenceServer approach with `batched_self_play()`: all N games run in lockstep, single-threaded with batch GPU calls. No threads, no GIL.
 - [x] **3b. Recency / diversity sampling** — buffer FIFO with cap; Zobrist dedup
-- [x] **3c. CUDA Graphs hot path** — code present; currently broken (tensor rebinding bug; falls back to eager)
+- [x] **3c. CUDA Graphs hot path** — fixed tensor rebinding bug; retained in InferenceServer (dashboard/elo use)
 
 ---
 
@@ -109,12 +109,14 @@ Confirmed correctness bugs found in code review — all fixed as of 2026-03-30.
 
 ## Training Simplification (completed 2026-03-30)
 
-- [x] **Tournament removed** — `_tourney_promote()` deleted; was crash source (`RuntimeError: Error(s) in loading state_dict for OptimizedModule` when loading old checkpoints into `torch.compile`d wrapper). Old checkpoints are now legacy.
-- [x] **MCTSAgent ELO eval removed** — was consuming 100–177s/gen; eval is now Eisenstein-only (~5s/gen).
-- [x] **Heatmap decoupled** — `save_heatmap()` still available but not called per-gen by default.
-- [x] **MAX_MOVES cap** — `self_play_episode` capped at 300 moves to prevent runaway games.
-- [x] **Overlap training cap** — `batches_since_sync < WEIGHT_SYNC_BATCHES` prevents overfitting to stale buffer during slow self-play gens.
-- [x] **Tree reuse stale pruning** — stale children (moves already on the board) pruned before reuse; falls back to fresh root if no valid children remain.
+- [x] **Threaded self-play replaced** — `batched_self_play()` replaces InferenceServer + thread workers. Single-threaded lockstep with batch GPU calls.
+- [x] **ELO eval removed from training loop** — pure self-play only. ELO system retained for `tournament.py`.
+- [x] **Tournament moved to standalone** — `tournament.py` for round-robin checkpoint evaluation.
+- [x] **MAX_MOVES curriculum** — ramps from 30→100 over 20 gens (was fixed 300).
+- [x] **SIMS curriculum** — ramps from 16→target over 20 gens.
+- [x] **Decisive game saving** — non-draw games saved to `replays/decisive/`.
+- [x] **torch.compile disabled** — was using 3-4GB RAM during JIT compilation.
+- [x] **BATCH_SIZE=256** — larger batches to saturate GPU during training.
 - [x] **metrics.jsonl** — appended unconditionally per-gen for dashboard live charts.
 
 ---
@@ -128,9 +130,15 @@ Confirmed correctness bugs found in code review — all fixed as of 2026-03-30.
 
 ## Phase 5 — Model Scale
 
-- [ ] **5a. Scale trunk 4blk/64ch** — ~480K params. Only after Phase 3 infrastructure (async self-play essential for this to be efficient). 2h implementation effort.
+- [x] **5a. Scale trunk** — 6 blocks × 128 channels (~1.9M params). Scaled from 4blk/64ch (~480K).
 - [ ] **5b. Activation sparsity / early exit** — profile `v_fc` first layer; if >60% sparsity implement early exit from value head. Low priority until scale experiments run.
-- [ ] **5c. C++/Rust MCTS** — Python GIL serializes tree traversal and prevents true batching. Required for `avg_batch_size > 2.0`. Phase 2+ feature.
+- [x] **5c. Batched lockstep MCTS** — replaced Python-threaded MCTS with lockstep approach. All N games evaluated in one GPU batch per sim. No GIL contention. C++/Rust no longer required for basic batching.
+- [x] **5d. Spatial policy head** — `policy_logits(features) → [B, S, S]` replaces per-move policy head. Single forward pass for full policy.
+- [x] **5e. Vectorized spatial policy loss** — masked softmax over `[B, S, S]` logit map against `policy_target` plane. No Python loops.
+- [x] **5f. Curriculum (sims + max_moves)** — sims ramp 16→100, max_moves ramp 30→100 over 20 gens each.
+- [x] **5g. Decisive game saving** — all non-draw games saved to `replays/decisive/` for corpus building.
+- [x] **5h. `tournament.py`** — round-robin model checkpoint tournaments with ELO ratings.
+- [x] **5i. `tune.py` rewrite** — uses policy loss delta from `metrics.jsonl` instead of ELO vs Eisenstein.
 
 ---
 
@@ -142,13 +150,15 @@ Confirmed correctness bugs found in code review — all fixed as of 2026-03-30.
 | ✅ — | Dashboard (server.py + dashboard.html) | **done 2026-03-30** | Live monitoring |
 | ✅ — | Training simplification | **done 2026-03-30** | Stable long runs |
 | ✅ — | All Phase 0–3b-viii items | **done 2026-03-30** | See sections above |
-| ✅ — | CPUCT 1.0→2.0, DIRICHLET_ALPHA 0.3→0.09 | **done 2026-03-30** | Better exploration + root noise |
-| ✅ — | History planes (FIX-6) | **verified 2026-03-30** | Already correct via player_history |
+| ✅ — | CPUCT tuned, DIRICHLET_ALPHA/EPS raised | **done** | Better exploration + root noise |
 | ✅ — | Aux heads (3b-vii) | **done 2026-03-30** | Richer trunk representation |
 | ✅ — | Recency replay (3b-viii) | **done 2026-03-30** | Tracks current policy better |
-| ⬜ 1 | Run 50-gen baseline | next | Validate all improvements |
+| ✅ — | Spatial policy head (5d) | **done** | Single forward pass, vectorized loss |
+| ✅ — | Batched lockstep MCTS (5c) | **done** | No GIL, full GPU utilization |
+| ✅ — | Scale trunk 6blk/128ch (5a) | **done** | ~1.9M params |
+| ✅ — | Curriculum sims+max_moves (5f) | **done** | Gradual complexity ramp |
+| ✅ — | tournament.py (5h) | **done** | Round-robin checkpoint evaluation |
+| ✅ — | tune.py rewrite (5i) | **done** | Policy loss delta signal |
+| ⬜ 1 | Run sustained baseline | next | Validate all improvements |
 | ⬜ 2 | MuZero reanalysis (3b-ix) | future | Freshen stale targets |
-| ⬜ 3 | CA weight init (4b) | future | Z[ω]-aligned priors |
-| ⬜ 4 | G-CNN equivariance (4a) | future | Principled symmetry |
-| ⬜ 5 | Scale trunk (5a) | future | Capacity (after plateau) |
-| ⬜ 6 | C++/Rust MCTS (5c) | future | True inference batching |
+| ⬜ 3 | G-CNN equivariance (4a) | future | Principled symmetry |

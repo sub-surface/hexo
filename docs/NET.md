@@ -3,41 +3,49 @@
 ## Architecture
 
 ```
-Input [11, 18, 18]
-  → HexConv2d(11→64, 3×3) + BN + ReLU           [stem: hex-masked conv]
-  → 4× ResBlock(64ch, HexConv2d)                 [trunk: Z[ω]-faithful kernels]
-  → GlobalPoolBranch(64ch)                        [KataGo global context]
-  ├→ Conv2d(64→1, 1×1) + BN + ReLU → FC → Tanh  [value head → scalar ∈ [-1,1]]
-  ├→ Softplus variance head                       [value uncertainty → σ²]
-  ├→ Conv2d(64→1, 1×1) + Tanh                    [ownership aux → [S,S]]
-  ├→ Conv2d(64→1, 1×1)                           [threat aux → [S,S]]
-  └→ Conv2d(64→4, 1×1) + BN + ReLU →
-       cat(move_plane) → Linear(5·S², 64) → out  [policy → scalar logit per move]
+Input [17, 18, 18]
+  → HexConv2d(17→128, 3×3) + BN + ReLU            [stem: hex-masked conv]
+  → 6× ResBlock(128ch, HexConv2d)                  [trunk: Z[ω]-faithful kernels]
+  → GlobalPoolBranch(128ch)                         [KataGo global context]
+  ├→ Conv2d(128→1, 1×1) + BN + ReLU → FC → Tanh   [value head → scalar ∈ [-1,1]]
+  ├→ AdaptiveAvgPool → FC → Softplus               [value uncertainty → σ² (disabled, UNC_LOSS_WEIGHT=0)]
+  ├→ Conv2d(128→1, 1×1) + Tanh                     [ownership aux → [S,S]]
+  ├→ Conv2d(128→1, 1×1)                            [threat aux → [S,S]]
+  └→ Conv2d(128→128, 1×1) + BN + ReLU →
+       Conv2d(128→1, 1×1)                          [spatial policy → [B, S, S] logit map]
 ```
 
 | Param | Value | Rationale |
 |-------|-------|-----------|
 | Board window | 18×18 | Centered on recent-move centroid; covers >95% of game extents |
-| Hidden channels | 64 | Configurable via CFG["TRUNK_CHANNELS"] |
-| Residual blocks | 4 | Configurable via CFG["TRUNK_BLOCKS"] |
+| Hidden channels | 128 | Configurable via CFG["TRUNK_CHANNELS"] |
+| Residual blocks | 6 | Configurable via CFG["TRUNK_BLOCKS"] |
+| Total params | ~1.9M | Scaled from ~121K (4blk/64ch) and ~480K (4blk/64ch) |
 | Precision | FP16 AMP | `torch.amp.autocast` doubles memory bandwidth |
 | Weight init | Hex-Laplacian CA | `init_weights_ca()` — Z[ω]-aligned diffusion prior |
+| torch.compile | Disabled | Uses 3-4GB RAM during JIT compilation |
 
 ---
 
 ## Input Encoding (`encode_board`)
 
-Returns `float32 [11, 18, 18]` centered on the centroid of the last N_RECENT (20) moves.
+Returns `float32 [17, 18, 18]` centered on the centroid of the last N_RECENT (20) moves.
 
 | Channel(s) | Contents |
 |-----------|----------|
-| 0–3 | P1 piece positions at t, t−1, t−2, t−3 (4-step history) |
-| 4–7 | P2 piece positions at t, t−1, t−2, t−3 (4-step history) |
-| 8 | P1 current pieces (same as ch 0) |
-| 9 | P2 current pieces (same as ch 4) |
-| 10 | To-move plane: 0.0 = P1 to move, 1.0 = P2 to move |
+| 0 | P1 current pieces |
+| 1 | P2 current pieces |
+| 2 | To-move plane: 0.0 = P1 to move, 1.0 = P2 to move |
+| 3–6 | P1 last 4 moves (most recent = ch 3), one-hot each |
+| 7–10 | P2 last 4 moves (most recent = ch 7), one-hot each |
+| 11–13 | Current player axis-chain planes (one per Z[ω] axis: (1,0), (0,1), (1,-1)) |
+| 14–16 | Opponent axis-chain planes (one per Z[ω] axis) |
 
-`N_HISTORY = 4`, `IN_CH = 3 + 2×4 = 11`.
+`N_HISTORY = 4`, `IN_CH = 3 + 2×4 + 6 = 17`.
+
+The axis-chain planes (11-16) encode the Eisenstein integer structure directly: each
+empty candidate cell carries three independent chain-length signals (one per Z[ω]
+unit direction), normalized by WIN_LENGTH and clipped to [0, 1].
 
 Also returns `(oq, or_)` — the integer centroid offset used to encode moves.
 
@@ -99,12 +107,12 @@ caller). Up to 12× sample efficiency at zero self-play cost.
 Inserted after `self.blocks` in `HexNet.trunk()`:
 
 ```
-trunk features [B, 32, H, W]
-  → avg_pool → [B, 32]
-  → max_pool → [B, 32]
-  → cat      → [B, 64]
-  → FC(64, 32) + ReLU
-  → reshape  → [B, 32, 1, 1]
+trunk features [B, 128, H, W]
+  → avg_pool → [B, 128]
+  → max_pool → [B, 128]
+  → cat      → [B, 256]
+  → FC(256, 128) + ReLU
+  → reshape  → [B, 128, 1, 1]
   → broadcast_add to trunk features
 ```
 
@@ -113,15 +121,24 @@ material balance) at ~2K extra parameters.
 
 ---
 
-## Policy Head
+## Policy Head (Spatial)
 
-`(trunk_features, move_plane) → scalar logit`
+`policy_logits(features) → [B, S, S]` spatial logit map.
 
-`move_plane` is a `[1, 18, 18]` one-hot plane for the candidate move.
-`encode_move(q, r, oq, or_)` returns `None` if the move is outside the window.
+A single forward pass produces logits for all cells simultaneously. No per-move
+forward pass required. Legal moves are extracted from the logit map using
+`move_to_grid(q, r, oq, or_)` to map axial coordinates to grid indices.
 
-Training loss: **Cross-entropy** over all legal moves in a position using the
-MCTS visit count distribution as targets.
+`encode_move()` is retained for backward compatibility but is no longer used
+in the primary training or inference paths.
+
+The `evaluate()` helper in `net.py` does one trunk + value + policy pass and
+returns `(value, {move: logit})` for all legal moves within the window.
+
+Training loss: **Spatial masked cross-entropy** — the logit map is masked to
+legal moves, softmax is applied over the masked map, and cross-entropy is
+computed against the MCTS visit count distribution (stored as a `[S, S]`
+`policy_target` spatial plane). Fully vectorized, no Python loops over moves.
 
 ---
 
@@ -135,7 +152,6 @@ and training starts fresh with a clean net.
 
 ## Parameter Count Note
 
-`inference.py` docstring says "355K-param net" — this is outdated. `net.py`
-comment and `param_count()` report ~121K. The discrepancy is from an earlier,
-larger architecture that was replaced. The inference code is correct; only
-the comment is stale.
+Current architecture with HIDDEN=128, N_BLOCKS=6 has ~1.9M parameters.
+Previous sizes: ~121K (4blk/64ch), ~480K (4blk/64ch scaled).
+`param_count(net)` reports the exact count.

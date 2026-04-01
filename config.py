@@ -10,8 +10,8 @@ CFG = {
     "SIMS_MIN": 16,
     "CAP_FULL_FRAC": 0,
     "CPUCT": 1.5,
-    "DIRICHLET_ALPHA": 0.09,
-    "DIRICHLET_EPS": 0.25,
+    "DIRICHLET_ALPHA": 0.15,   # raised from 0.09 — more exploration to break plateau
+    "DIRICHLET_EPS": 0.35,    # raised from 0.25 — stronger noise mixing
     "ZOI_MARGIN": 5,
     "ZOI_LOOKBACK": 16,
     "GUMBEL_SELECTION": True,

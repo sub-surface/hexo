@@ -12,6 +12,7 @@ Optimisations:
 """
 
 WIN_LENGTH = 6
+PLACEMENT_RADIUS = 8  # max hex distance from any existing piece for a legal move
 
 # Six axial directions; first 3 are the unique axes (each covers both directions)
 DIRS = ((1, 0), (0, 1), (1, -1), (-1, 0), (0, -1), (-1, 1))
@@ -21,6 +22,13 @@ AXES = DIRS[:3]
 def _hex_dist(q1: int, r1: int, q2: int, r2: int) -> int:
     """Hex grid distance in axial coordinates."""
     return (abs(q1 - q2) + abs(r1 - r2) + abs((q1 + r1) - (q2 + r2))) // 2
+
+
+def _cells_within_radius(q: int, r: int, radius: int):
+    """Yield all (q, r) cells within hex distance `radius` of (q, r)."""
+    for dq in range(-radius, radius + 1):
+        for dr in range(max(-radius, -dq - radius), min(radius, -dq + radius) + 1):
+            yield (q + dq, r + dr)
 
 
 class HexGame:
@@ -107,47 +115,36 @@ class HexGame:
     # ------------------------------------------------------------------
 
     def legal_moves(self) -> list[tuple[int, int]]:
-        return list(self.candidates)
+        """All empty cells within PLACEMENT_RADIUS of any piece."""
+        if not self.board:
+            return [(0, 0)]
+        moves = set()
+        for pq, pr in self.board:
+            for cq, cr in _cells_within_radius(pq, pr, PLACEMENT_RADIUS):
+                if (cq, cr) not in self.board:
+                    moves.add((cq, cr))
+        return list(moves)
 
     def zoi_moves(self, margin: int = 6, lookback: int = 16) -> list[tuple[int, int]]:
         """
         Zone-of-Interest pruning: return only candidates within `margin` hex
-        steps of the last `lookback` placed pieces. Keeps MCTS focused on the
-        current play area rather than stale candidates from earlier turns.
-
-        Note: HexGame.candidates is already within 1 step of all pieces, so
-        global-ZOI (relative to all pieces) equals candidates. This method
-        uses RECENT pieces as the focus — a tighter, tactically motivated
-        restriction as games grow long and candidates accumulate.
-
-        Default margin=6 is conservative (covers the WIN_LENGTH); reduce to
-        4-5 for faster play once the net is trained enough to not miss threats.
-        lookback default=16 matches ZOI_LOOKBACK config default.
+        steps of the last `lookback` placed pieces. Uses direct hex distance
+        checks — O(|candidates| × lookback) with no allocation overhead.
         """
         if len(self.move_history) < lookback:
             return list(self.candidates)
 
-        # BFS expansion from each recent piece up to `margin` steps.
-        # Generates the reachable set directly — O(margin² × lookback) instead of
-        # O(lookback × |candidates|) distance checks per call.
         recent = self.move_history[-lookback:]
-        reachable: set[tuple[int, int]] = set()
-        for q0, r0 in recent:
-            frontier = {(q0, r0)}
-            visited  = {(q0, r0)}
-            for _ in range(margin):
-                next_f: set[tuple[int, int]] = set()
-                for q, r in frontier:
-                    for dq, dr in DIRS:
-                        nb = (q + dq, r + dr)
-                        if nb not in visited:
-                            visited.add(nb)
-                            next_f.add(nb)
-                frontier = next_f
-                reachable |= frontier
-        within = reachable & self.candidates
+        within = []
+        for q, r in self.candidates:
+            s = q + r
+            for q0, r0 in recent:
+                # Inline hex distance: (|dq| + |dr| + |ds|) // 2
+                if (abs(q - q0) + abs(r - r0) + abs(s - q0 - r0)) <= margin * 2:
+                    within.append((q, r))
+                    break
 
-        return list(within) if len(within) >= 3 else list(self.candidates)
+        return within if len(within) >= 3 else list(self.candidates)
 
     def _check_win(self, q: int, r: int) -> bool:
         assert WIN_LENGTH == 6, f"WIN_LENGTH corrupted: {WIN_LENGTH}"

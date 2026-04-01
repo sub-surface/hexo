@@ -200,6 +200,35 @@ def api_train_stop():
     return result
 
 
+@app.post("/api/train/reset")
+def api_train_reset():
+    """Wipe checkpoints, logs, metrics, replays — fresh start from gen 0."""
+    import shutil
+    status = _singleton.status()
+    if status.get("state") == "running":
+        return {"ok": False, "error": "Stop training first"}
+    removed, skipped = [], []
+    for p in Path("checkpoints").glob("net_*.pt"):
+        try: p.unlink(); removed.append(p.name)
+        except OSError: skipped.append(p.name)
+    for p in Path("checkpoints").glob("*.pkl"):
+        try: p.unlink(); removed.append(p.name)
+        except OSError: skipped.append(p.name)
+    for f in [METRICS_FILE, LOG_FILE, Path("elo.json")]:
+        if f.exists():
+            try: f.unlink(); removed.append(f.name)
+            except OSError:
+                # Truncate if locked (e.g. train.log held by logger)
+                try: open(f, "w").close(); removed.append(f"{f.name} (truncated)")
+                except OSError: skipped.append(f.name)
+    for d in [REPLAYS_DIR]:
+        if d.exists():
+            shutil.rmtree(d, ignore_errors=True); d.mkdir(exist_ok=True)
+            (d / "decisive").mkdir(exist_ok=True)
+            removed.append(str(d))
+    return {"ok": True, "removed": removed, "skipped": skipped}
+
+
 @app.get("/api/metrics")
 def api_metrics():
     if not METRICS_FILE.exists():

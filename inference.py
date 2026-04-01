@@ -83,12 +83,8 @@ class InferenceServer:
 
     def start(self):
         self._running = True
-        # torch.compile: fuse trunk+value+policy into one optimized graph
-        if torch.cuda.is_available() and hasattr(torch, "compile"):
-            try:
-                self.net = torch.compile(self.net, dynamic=True)
-            except Exception:
-                pass  # non-fatal: older PyTorch or unsupported config
+        # torch.compile disabled — uses 3-4GB RAM during JIT compilation
+        pass
         self._thread.start()
 
     def stop(self):

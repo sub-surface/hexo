@@ -9,11 +9,11 @@ Each component has its own detailed doc.
 |-----------|------|-------------|
 | Game engine | [GAME.md](GAME.md) | Rules, Z[ω] axioms, make/unmake, ZOI, candidates |
 | MCTS | [MCTS.md](MCTS.md) | Two modes, multi-placement backprop, tree reuse, known bugs |
-| Neural net | [NET.md](NET.md) | HexConv2d, D6 augmentation, GlobalPoolBranch, policy head |
-| Inference server | [INFERENCE.md](INFERENCE.md) | Dynamic batching, CUDA Graphs (broken), transposition cache |
-| Training | [TRAINING.md](TRAINING.md) | Self-play loop, TD-lambda, D6 at train time, checkpoint tournament |
-| ELO system | [ELO.md](ELO.md) | Agents, rating mechanics, known issues |
-| Autotune | [AUTOTUNE.md](AUTOTUNE.md) | Hyperparameter search, tune.py, config.py, skill |
+| Neural net | [NET.md](NET.md) | HexConv2d, D6 augmentation, GlobalPoolBranch, spatial policy head |
+| Inference server | [INFERENCE.md](INFERENCE.md) | Dynamic batching, transposition cache (used by dashboard/elo, not training) |
+| Training | [TRAINING.md](TRAINING.md) | Batched lockstep self-play, spatial policy loss, curriculum, D6 at train time |
+| ELO system | [ELO.md](ELO.md) | Agents, rating mechanics, tournament.py round-robin |
+| Autotune | [AUTOTUNE.md](AUTOTUNE.md) | Hyperparameter search, tune.py (policy loss delta), config.py |
 | Roadmap | [ROADMAP.md](ROADMAP.md) | Checkbox status for all phases |
 | Assessment | [ASSESSMENT.md](ASSESSMENT.md) | Honest code review findings and priority fix list |
 | Research | [research/](research/) | Literature synthesis across 7 research docs |
@@ -82,12 +82,13 @@ without any explicit encoding of that structure.
 hexgo/
   game.py       Engine — 1-2-2 turn logic, incremental candidates, make/unmake
   mcts.py       MCTS — player-aware backprop, rollout + net modes
-  net.py        HexNet — HexConv2d/D6/ResNet 18x18/64ch/11ch/4blk + FP16 AMP
-  inference.py  InferenceServer — dynamic batching + transposition cache
-  train.py      Training loop — D6 aug, Eisenstein curriculum, heatmap, ELO
+  net.py        HexNet — HexConv2d/D6/ResNet 18x18/128ch/17ch/6blk + FP16 AMP, spatial policy head
+  inference.py  InferenceServer — dynamic batching + transposition cache (dashboard/elo use only)
+  train.py      Batched lockstep self-play — no threads, spatial policy loss, curriculum
   config.py     Hyperparameters — all tunable params; edited by autotune agent
-  tune.py       Autotune orchestrator — backup/run/measure/revert
+  tune.py       Autotune orchestrator — policy loss delta from metrics.jsonl
   elo.py        ELO rating — NetAgent, MCTSAgent, EisensteinGreedyAgent
+  tournament.py Round-robin model checkpoint tournament with ELO ratings
   app.py        GUI monitor — pause/resume, win counter, log stream
   replay.py     Terminal replay — 1-2-2 aware, colored last-move bracket
   test_game.py  Unit tests — 26 pass
@@ -107,8 +108,8 @@ hexgo/
 ## Running
 
 ```bash
-# Train (50 gens)
-python train.py --gens 50 --sims 100 --games 20
+# Train (50 gens, 64 games/gen batched lockstep)
+python train.py --gens 50 --sims 100 --games 64
 
 # Autotune (5-gen trials, 10 games/gen)
 python tune.py --gens 5 --games 10

@@ -151,21 +151,25 @@ def test_undo_after_win():
 
 
 def test_candidates_tracking():
-    """Candidates must equal all empty cells adjacent to any placed piece."""
+    """Legal moves include all empty cells within PLACEMENT_RADIUS of any piece."""
+    from game import PLACEMENT_RADIUS
     g = HexGame()
     assert g.legal_moves() == [(0, 0)]
 
     g.make(0, 0)
     moves = set(g.legal_moves())
-    expected = {(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)}
-    assert moves == expected, f"candidates mismatch: {moves} vs {expected}"
+    # Adjacent cells must be legal
+    for dq, dr in [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]:
+        assert (dq, dr) in moves, f"adjacent ({dq},{dr}) should be legal"
+    assert (0, 0) not in moves  # occupied
+    assert (PLACEMENT_RADIUS, 0) in moves  # within radius
+    assert (PLACEMENT_RADIUS + 1, 0) not in moves  # outside radius
 
-    # After adding (1, 0): should not include (0, 0), should include new neighbors
     g.make(1, 0)
     moves_after = set(g.legal_moves())
     assert (0, 0) not in moves_after
     assert (1, 0) not in moves_after
-    assert (2, 0) in moves_after  # new neighbor of (1,0)
+    assert (2, 0) in moves_after
 
 
 def test_move_history_tracking():
@@ -236,7 +240,7 @@ def test_legal_moves_after_play():
     g.play(0, 0)
     moves = g.legal_moves()
     assert (0, 0) not in moves
-    assert len(moves) == 6  # exactly 6 neighbors
+    assert len(moves) > 6  # all cells within PLACEMENT_RADIUS, not just 6 neighbors
 
 
 # ── neural net encoding tests ─────────────────────────────────────────────────
@@ -394,7 +398,7 @@ def test_d6_augment_spatial_consistent():
 
 
 def test_eisenstein_greedy_prefers_longer_chain():
-    """EisensteinGreedyAgent should prefer the move that extends the longest chain."""
+    """EisensteinGreedyAgent should prefer a move that extends the longest chain."""
     from elo import EisensteinGreedyAgent
     agent = EisensteinGreedyAgent(defensive=False)
     g = HexGame()
@@ -404,10 +408,11 @@ def test_eisenstein_greedy_prefers_longer_chain():
     g.make(1, 0); g.make(2, 0)      # P1 (2 tiles)
     g.make(11, 10); g.make(11, 11)  # P2
     g.make(3, 0)                    # P1 first of 2 tiles
-    # Now P1 places second tile — (4,0) extends to 5-chain, (-1,0) extends to 2-chain
+    # Now P1 places second tile — (4,0) or (-1,0) extends the q-axis chain
     assert g.current_player == 1
     move = agent.choose_move(g)
-    assert move == (4, 0), f"Expected (4,0) to extend 4-chain, got {move}"
+    # Should pick a move that extends the 4-chain, either end
+    assert move in ((4, 0), (-1, 0)), f"Expected chain-extending move, got {move}"
 
 
 # ── runner ────────────────────────────────────────────────────────────────────

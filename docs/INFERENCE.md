@@ -1,5 +1,10 @@
 # HexGo — Inference Server (`inference.py`)
 
+**Note:** The `InferenceServer` is **no longer used during training**. Training now
+uses `batched_self_play()` in `train.py` which does lockstep batched evaluation
+directly — no threads, no GIL. The `InferenceServer` is retained for use by
+`dashboard`/`elo.py`/`tournament.py` where threaded evaluation is still needed.
+
 ## Problem and Solution
 
 Sequential GPU forward passes incur ~6ms kernel launch overhead regardless of
@@ -62,29 +67,21 @@ The graph path now executes correctly and provides the expected 30–50% latency
 
 ## `torch.compile`
 
-Applied in `start()` with `dynamic=True` when CUDA is available:
-```python
-self.net = torch.compile(self.net, dynamic=True)
-```
-
-On Windows, Triton (the default compile backend) is poorly supported on native
-installs. Failures are silently swallowed (`except Exception: pass`). Whether
-`torch.compile` is active or not is unobservable from logs.
-
-`torch.compile` and CUDA Graphs interact poorly (both share the same `net` object;
-CUDA Graphs need static shapes while `dynamic=True` generates dynamic dispatch).
+Disabled — uses 3-4GB RAM during JIT compilation. The `start()` method is now
+a no-op for compilation. Previously applied `torch.compile(net, dynamic=True)`
+but this caused RAM issues and interacted poorly with CUDA Graphs.
 
 ---
 
 ## Batching Performance
 
-`avg_batch_size ≈ 1.0` is commonly observed. The root cause is the Python GIL
-serializing CPU-bound MCTS tree traversal, not the timeout setting. When threads
-spend most time in Python-level tree walks between evaluations, they rarely arrive
-at the server concurrently within the 30ms window.
+The GIL-induced `avg_batch_size ≈ 1.0` problem was the primary motivation for
+replacing the threaded InferenceServer with batched lockstep MCTS in training.
+The lockstep approach evaluates all N games in a single batch, achieving full
+GPU utilization without any threading.
 
-True fix: move MCTS tree traversal to C++/Rust (roadmap item 5b). Workaround:
-increase `NUM_WORKERS` so more threads are waiting simultaneously.
+The InferenceServer remains available for dashboard/elo/tournament use where
+true batching matters less (few concurrent games).
 
 ---
 
@@ -109,7 +106,6 @@ server.latency_summary()                 # min/avg/max batch latency string
 | CUDA Graph rebinding bug | Critical | **Fixed 2026-03-30** |
 | `_graph_val` shape `[B,1]` IndexError | Critical | **Fixed 2026-03-30** |
 | Cache key missing turn state | Important | **Fixed 2026-03-30** |
-| `torch.compile` failure silent on Windows | Moderate | By design |
-| Persistent cache 5-gen staleness | Suggestion | Tunable |
-| `avg_batch_size≈1` root cause is GIL, not timeout | Design note | |
-| Stale "355K-param net" comment in module docstring | Minor | Outdated from old arch |
+| `torch.compile` disabled (RAM issues) | By design | Disabled |
+| `avg_batch_size≈1` root cause was GIL | Design note | Solved by lockstep MCTS in training |
+| InferenceServer not used in training | Design note | Retained for dashboard/elo/tournament |

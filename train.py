@@ -14,6 +14,7 @@ import argparse
 import json
 import logging
 import math
+import pickle
 import random
 import shutil
 import sys
@@ -58,14 +59,15 @@ LR           = CFG["LR"]
 WEIGHT_DECAY = CFG["WEIGHT_DECAY"]
 
 # Batched self-play settings
-TOP_K        = 12      # only expand top-K moves by policy prior (reduces branching)
+TOP_K        = 16      # expanded from 12 — more candidate moves to find winning lines
 SIMS_MIN     = 16      # min sims early in training
 SIMS_RAMP    = 20      # generations to ramp from SIMS_MIN to target
 MAX_MOVES_MIN = 30     # max moves per game early in training
-MAX_MOVES_MAX = 80     # max moves per game late in training
+MAX_MOVES_MAX = 100    # compromise: fewer artificial draws than 80, faster than 150
 MAX_MOVES_RAMP = 20    # generations to ramp
 DECISIVE_DIR  = Path("replays/decisive")
 DECISIVE_DIR.mkdir(parents=True, exist_ok=True)
+TD_LAMBDA     = 0.8       # temporal difference lambda for value targets
 
 
 def _curriculum_sims(gen, target):
@@ -126,6 +128,8 @@ def batched_self_play(net, n_games, sims, max_moves, top_k, device):
     temp_horizon = CFG.get("TEMP_HORIZON", 40)
     dir_alpha = CFG.get("DIRICHLET_ALPHA", 0.09)
     dir_eps = CFG.get("DIRICHLET_EPS", 0.25)
+    zoi_margin = CFG.get("ZOI_MARGIN", 6)
+    zoi_lookback = CFG.get("ZOI_LOOKBACK", 16)
 
     while active:
         active_list = sorted(active)
@@ -135,17 +139,24 @@ def batched_self_play(net, n_games, sims, max_moves, top_k, device):
         board_data = [encode_board(games[i]) for i in active_list]
         boards_np = np.stack([d[0] for d in board_data])
         origins = [d[1] for d in board_data]
+        root_board_data = {active_list[j]: board_data[j] for j in range(len(active_list))}
 
         boards_t = torch.tensor(boards_np, device=device)
         with torch.amp.autocast(device_type="cuda" if _CUDA else "cpu"):
             rf = net.trunk(boards_t)
             root_logits = net.policy_logits(rf).float().cpu().numpy()
+        # Value head has FC layers that overflow float16 with CA init —
+        # compute in float32 outside autocast.
+        root_values = net.value(rf.float()).cpu().numpy().clip(-1.0, 1.0)
+
+        root_value_for_game = {active_list[j]: float(root_values[j])
+                               for j in range(len(active_list))}
 
         # Create root nodes with top-K pruning + Dirichlet noise
         roots = {}
         for local_idx, i in enumerate(active_list):
             oq, or_ = origins[local_idx]
-            legal = games[i].legal_moves()
+            legal = games[i].zoi_moves(zoi_margin, zoi_lookback)
 
             move_logits = []
             for m in legal:
@@ -206,12 +217,12 @@ def batched_self_play(net, n_games, sims, max_moves, top_k, device):
                 eval_t = torch.tensor(eval_np, device=device)
                 with torch.amp.autocast(device_type="cuda" if _CUDA else "cpu"):
                     ef = net.trunk(eval_t)
-                    ev = net.value(ef).float().cpu().numpy()
                     ep = net.policy_logits(ef).float().cpu().numpy()
+                ev = net.value(ef.float()).cpu().numpy().clip(-1.0, 1.0)
 
                 for j, (i, node, depth) in enumerate(needs_eval):
                     oq, or_ = eval_origins[j]
-                    legal = games[i].legal_moves()
+                    legal = games[i].zoi_moves(zoi_margin, zoi_lookback)
 
                     ml = []
                     for m in legal:
@@ -271,7 +282,7 @@ def batched_self_play(net, n_games, sims, max_moves, top_k, device):
             chosen = child_moves[np.random.choice(len(child_moves), p=dist)]
 
             # Record training data with spatial policy target
-            board_arr, (oq, or_) = encode_board(games[i])
+            board_arr, (oq, or_) = root_board_data[i]
             policy_target = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=np.float32)
             legal_mask = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=np.float32)
             for m, d in zip(child_moves, dist):
@@ -288,6 +299,8 @@ def batched_self_play(net, n_games, sims, max_moves, top_k, device):
                 "policy_target": policy_target,
                 "legal_mask": legal_mask,
                 "player": games[i].current_player,
+                "origin": (oq, or_),
+                "value_est": root_value_for_game.get(i, 0.0),
             })
 
             games[i].make(*chosen)
@@ -296,20 +309,44 @@ def batched_self_play(net, n_games, sims, max_moves, top_k, device):
             if games[i].winner is not None or move_counts[i] >= max_moves:
                 active.discard(i)
 
-    # Assign outcomes + aux labels
+    # Assign TD-lambda value targets + real aux labels
+    td_gamma = CFG.get("TD_GAMMA", 0.99)
     results = []
     for i in range(n_games):
         winner = games[i].winner
-        for pos in all_positions[i]:
-            if winner is None:
-                pos["z"] = 0.0
-            else:
-                pos["z"] = 1.0 if pos["player"] == winner else -1.0
-            del pos["player"]
-            pos["own_label"] = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=np.float32)
-            pos["threat_label"] = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=np.float32)
+        positions = all_positions[i]
+        n_pos = len(positions)
 
-        results.append((all_positions[i], winner, list(games[i].move_history)))
+        if n_pos == 0:
+            results.append(([], winner, list(games[i].move_history)))
+            continue
+
+        # TD-lambda value targets (computed backwards from game outcome)
+        targets = [0.0] * n_pos
+        if winner is None:
+            targets[-1] = 0.0
+        else:
+            targets[-1] = 1.0 if positions[-1]["player"] == winner else -1.0
+
+        for t in range(n_pos - 2, -1, -1):
+            # Sign flip when consecutive positions have different active players
+            sign = 1.0 if positions[t]["player"] == positions[t + 1]["player"] else -1.0
+            v_next = positions[t + 1]["value_est"]
+            g_next = targets[t + 1]
+            targets[t] = sign * td_gamma * ((1 - TD_LAMBDA) * v_next + TD_LAMBDA * g_next)
+
+        # Generate real aux labels from final game state
+        for t, pos in enumerate(positions):
+            pos["z"] = max(-1.0, min(1.0, targets[t]))
+            oq, or_ = pos["origin"]
+            own_label, threat_label = make_aux_labels(games[i], winner, oq, or_)
+            pos["own_label"] = own_label
+            pos["threat_label"] = threat_label
+            del pos["player"]
+            del pos["origin"]
+            del pos["value_est"]
+
+        results.append((positions, winner, list(games[i].move_history)))
 
     return results
 
@@ -464,6 +501,58 @@ def load_latest(net):
     return 0
 
 
+# -- Replay buffer persistence ------------------------------------------------
+
+BUFFER_FILE = CHECKPOINT_DIR / "replay_buffer.npz"
+
+# Keys and shapes for each buffer item (all float32):
+#   board:         [IN_CH, S, S]
+#   policy_target: [S, S]
+#   legal_mask:    [S, S]
+#   z:             scalar
+#   own_label:     [S, S]
+#   threat_label:  [S, S]
+
+def save_buffer(buffer):
+    """Persist replay buffer as stacked numpy arrays (uncompressed for speed)."""
+    n = len(buffer)
+    if n == 0:
+        return
+    try:
+        buf_list = list(buffer)
+        np.savez(
+            BUFFER_FILE,
+            board=np.stack([b["board"] for b in buf_list]),
+            policy=np.stack([b["policy_target"] for b in buf_list]),
+            mask=np.stack([b["legal_mask"] for b in buf_list]),
+            z=np.array([b["z"] for b in buf_list], dtype=np.float32),
+            own=np.stack([b["own_label"] for b in buf_list]),
+            threat=np.stack([b["threat_label"] for b in buf_list]),
+        )
+    except Exception as e:
+        log.warning("Failed to save buffer: %s", e)
+
+
+def load_buffer(buffer):
+    """Restore replay buffer from compressed numpy archive."""
+    if BUFFER_FILE.exists():
+        try:
+            d = np.load(BUFFER_FILE)
+            n = len(d["z"])
+            for i in range(n):
+                buffer.append({
+                    "board": d["board"][i],
+                    "policy_target": d["policy"][i],
+                    "legal_mask": d["mask"][i],
+                    "z": float(d["z"][i]),
+                    "own_label": d["own"][i],
+                    "threat_label": d["threat"][i],
+                })
+            log.info("Loaded replay buffer: %d positions from %s", len(buffer), BUFFER_FILE)
+        except Exception as e:
+            log.warning("Failed to load buffer (%s), starting fresh", e)
+
+
 # -- Main training loop --------------------------------------------------------
 
 def train(n_gens=50, sims=100, games_per_gen=64):
@@ -477,13 +566,13 @@ def train(n_gens=50, sims=100, games_per_gen=64):
         init_weights_ca(net)
         log.info("Initialized HexConv2d kernels with hex-Laplacian CA priors.")
 
-    # torch.compile for faster forward passes
-    if _CUDA and hasattr(torch, "compile"):
-        try:
-            net = torch.compile(net, dynamic=True)
-            log.info("torch.compile enabled (dynamic=True)")
-        except Exception:
-            pass
+    # torch.compile disabled — uses 3-4GB RAM during compilation
+    # if _CUDA and hasattr(torch, "compile"):
+    #     try:
+    #         net = torch.compile(net, dynamic=True)
+    #         log.info("torch.compile enabled (dynamic=True)")
+    #     except Exception:
+    #         pass
 
     optimizer = optim.Adam(net.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     WARMUP_GENS = 5
@@ -495,13 +584,14 @@ def train(n_gens=50, sims=100, games_per_gen=64):
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     scaler = torch.amp.GradScaler(enabled=_CUDA)
     buffer = deque(maxlen=BUFFER_CAP)
+    # Buffer persistence disabled — was causing hangs (save) and OOM (load)
 
     for gen in range(start_gen + 1, start_gen + n_gens + 1):
         log.info("--- Generation %d ---", gen)
         t_gen = time.perf_counter()
 
-        cur_sims = _curriculum_sims(gen - start_gen, sims)
-        cur_max_moves = _curriculum_max_moves(gen - start_gen)
+        cur_sims = _curriculum_sims(gen, sims)
+        cur_max_moves = _curriculum_max_moves(gen)
 
         # --- Batched self-play ---
         t_sp = time.perf_counter()
@@ -534,8 +624,16 @@ def train(n_gens=50, sims=100, games_per_gen=64):
         if n_decisive > 0:
             log.info("  Saved %d decisive games to replays/decisive/", n_decisive)
 
-        # Save one representative replay
-        if results:
+        # Save representative replays to main replays/ dir
+        decisive_results = [r for r in results if r[1] is not None and len(r[2]) >= 6]
+        if decisive_results:
+            # Save shortest decisive (cleanest win) and longest decisive
+            shortest = min(decisive_results, key=lambda r: len(r[2]))
+            longest = max(decisive_results, key=lambda r: len(r[2]))
+            save_replay(shortest[2], shortest[1], gen, f"w{shortest[1]}_short")
+            if longest is not shortest:
+                save_replay(longest[2], longest[1], gen, f"w{longest[1]}_long")
+        elif results:
             best = max(results, key=lambda r: len(r[2]))
             save_replay(best[2], best[1], gen, "longest")
 
@@ -566,7 +664,7 @@ def train(n_gens=50, sims=100, games_per_gen=64):
         else:
             log.info("  Buffer too small (%d < %d)", len(buffer), BATCH_SIZE)
 
-        # Checkpoint
+        # Checkpoint (buffer persistence disabled — was blocking for 300MB+ numpy save)
         save(net, gen)
 
         # Metrics for dashboard
