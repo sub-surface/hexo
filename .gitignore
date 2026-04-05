@@ -10,6 +10,11 @@ venv/
 # Model checkpoints (binary weights — large, not version-controlled)
 checkpoints/*.pt
 checkpoints/legacy/*.pt
+checkpoints/replay_buffer.npz
+checkpoints/buffer/
+
+# Rust build artifacts
+hexgo-rs/target/
 
 # Logs
 # *.log
@@ -22,7 +27,8 @@ checkpoints/legacy/*.pt
 # Generated replay artifacts
 replays/*.json
 replays/*.png
-replays/decisive/*.json
+replays/decisive/
+
 # Backup files
 *.bak
 
@@ -32,3 +38,6 @@ replays/decisive/*.json
 # OS
 .DS_Store
 Thumbs.db
+train.log
+train.lock
+train_stdout.log

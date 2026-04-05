@@ -1,0 +1,21 @@
+[package]
+name = "hexgo"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "hexgo"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["extension-module"] }
+numpy = { version = "0.28" }
+rustc-hash = "2"
+rand = "0.8"
+rand_distr = "0.4"
+rayon = "1.10"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3

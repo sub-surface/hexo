@@ -29,7 +29,7 @@ def main():
         # Open browser after a short delay so the server is ready
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
 
-    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

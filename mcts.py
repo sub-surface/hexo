@@ -11,7 +11,10 @@ Two modes:
 import math
 import random
 import numpy as np
-from game import HexGame
+try:
+    from hexgo import HexGame
+except ImportError:
+    from game import HexGame
 
 try:
     from config import CFG
@@ -142,16 +145,67 @@ def mcts(game: HexGame, num_simulations: int = 200) -> tuple[int, int]:
     return root.best_move()
 
 
+_AXES = ((1, 0), (0, 1), (1, -1))
+
+def _chain_score(board, q, r, player):
+    """Max chain length if `player` places at (q,r), across all 3 hex axes."""
+    best = 1
+    for dq, dr in _AXES:
+        count = 1
+        for sign in (1, -1):
+            nq, nr = q + sign * dq, r + sign * dr
+            while board.get((nq, nr)) == player:
+                count += 1
+                nq += sign * dq
+                nr += sign * dr
+        best = max(best, count)
+    return best
+
+
+def _top_k_filter(moves, logits, k):
+    """Keep only top-k moves by logit value. Returns (filtered_moves, filtered_logits)."""
+    if len(moves) <= k:
+        return moves, logits
+    top_idx = np.argsort(logits)[-k:]
+    return [moves[i] for i in top_idx], logits[top_idx]
+
+
 def mcts_with_net(game: HexGame, net, num_simulations: int = 100,
-                  dirichlet_alpha: float = 0.3, dirichlet_eps: float = 0.25
+                  dirichlet_alpha: float = 0.3, dirichlet_eps: float = 0.0,
+                  top_k: int = 16, policy_temp: float = 1.0,
+                  cpuct_override: float = 0.0, move_temp: float = 0.0,
+                  proximity_bias: float = 0.0,
+                  chain_bonus: float = 0.0,
                   ) -> tuple[int, int]:
     """
     AlphaZero-style MCTS using HexNet for value + policy priors.
     No rollout — net value is used directly at leaf nodes.
     Dirichlet noise added to root priors for exploration.
+    top_k limits expansion to the K best policy moves (critical for large action spaces).
+    policy_temp < 1.0 sharpens priors (play mode); > 1.0 flattens (exploration).
+    cpuct_override > 0 overrides the global C_PUCT for this search.
     """
     from net import evaluate   # late import to avoid circular at module level
 
+    saved_cpuct = None
+    if cpuct_override > 0:
+        global C_PUCT
+        saved_cpuct = C_PUCT
+        C_PUCT = cpuct_override
+
+    try:
+        return _mcts_with_net_inner(
+            game, net, num_simulations, dirichlet_alpha, dirichlet_eps,
+            top_k, policy_temp, move_temp, proximity_bias, chain_bonus,
+            evaluate)
+    finally:
+        if saved_cpuct is not None:
+            C_PUCT = saved_cpuct
+
+
+def _mcts_with_net_inner(game, net, num_simulations, dirichlet_alpha,
+                         dirichlet_eps, top_k, policy_temp, move_temp,
+                         proximity_bias, chain_bonus, evaluate):
     root = Node(player=game.current_player)
 
     # Expand root with net priors
@@ -160,15 +214,44 @@ def mcts_with_net(game: HexGame, net, num_simulations: int = 100,
     if not moves:
         raise RuntimeError("mcts_with_net called on terminal/empty game")
 
-    # Softmax priors from logits
+    # Filter to top-K by raw policy logits (before softmax/noise)
     logits = np.array([policy.get(m, 0.0) for m in moves], dtype=np.float32)
+
+    # Proximity bias: penalize moves far from recent action center
+    if proximity_bias > 0 and game.move_history:
+        recent = game.move_history[-8:] if len(game.move_history) >= 8 else game.move_history
+        cq = sum(q for q, r in recent) / len(recent)
+        cr = sum(r for q, r in recent) / len(recent)
+        for i, (mq, mr) in enumerate(moves):
+            dq, dr = mq - cq, mr - cr
+            dist = max(abs(dq), abs(dr), abs(dq + dr))  # hex distance
+            logits[i] -= proximity_bias * dist
+
+    # Chain bonus: boost moves that extend own chains or block opponent threats
+    if chain_bonus > 0 and game.board:
+        me = game.current_player
+        opp = 3 - me
+        for i, (mq, mr) in enumerate(moves):
+            own = _chain_score(game.board, mq, mr, me)
+            block = _chain_score(game.board, mq, mr, opp)
+            # Exponential scaling: chain of 5 (one from win) gets huge bonus
+            logits[i] += chain_bonus * max(own, block) ** 1.5
+
+    moves, logits = _top_k_filter(moves, logits, top_k)
+
+    # Sharpen/flatten logits with temperature before softmax
+    if policy_temp != 1.0 and policy_temp > 0:
+        logits = logits / policy_temp
+
+    # Softmax priors from logits
     logits -= logits.max()
     priors = np.exp(logits)
     priors /= priors.sum()
 
     # Dirichlet noise at root
-    noise = np.random.dirichlet([dirichlet_alpha] * len(moves))
-    priors = (1 - dirichlet_eps) * priors + dirichlet_eps * noise
+    if dirichlet_eps > 0:
+        noise = np.random.dirichlet([dirichlet_alpha] * len(moves))
+        priors = (1 - dirichlet_eps) * priors + dirichlet_eps * noise
 
     root.children = [Node(move=m, parent=root, prior=float(p),
                           player=game.current_player)
@@ -198,6 +281,9 @@ def mcts_with_net(game: HexGame, net, num_simulations: int = 100,
             leaf_moves = game.legal_moves()
             if leaf_moves:
                 llogits = np.array([leaf_policy.get(m, 0.0) for m in leaf_moves], dtype=np.float32)
+                leaf_moves, llogits = _top_k_filter(leaf_moves, llogits, top_k)
+                if policy_temp != 1.0 and policy_temp > 0:
+                    llogits = llogits / policy_temp
                 llogits -= llogits.max()
                 lpriors = np.exp(llogits)
                 lpriors /= lpriors.sum()
@@ -210,7 +296,16 @@ def mcts_with_net(game: HexGame, net, num_simulations: int = 100,
 
         _backprop(node, v)
 
-    return root.best_move()
+    if move_temp <= 0 or not root.children:
+        return root.best_move()
+    # Temperature-based move selection: sample from visit distribution
+    visits = np.array([c.visits for c in root.children], dtype=np.float32)
+    if visits.sum() == 0:
+        return root.best_move()
+    vt = visits ** (1.0 / move_temp)
+    probs = vt / vt.sum()
+    idx = np.random.choice(len(root.children), p=probs)
+    return root.children[idx].move
 
 
 def self_play_game(num_simulations: int = 100, callback=None) -> dict:

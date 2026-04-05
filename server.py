@@ -179,6 +179,10 @@ threading.Thread(target=_metrics_watcher, daemon=True, name="metrics_watcher").s
 def root():
     return FileResponse("dashboard.html")
 
+@app.get("/mobile")
+def mobile():
+    return FileResponse("mobile.html")
+
 
 @app.get("/api/status")
 def api_status():
@@ -186,7 +190,7 @@ def api_status():
 
 
 @app.post("/api/train/start")
-def api_train_start(gens: int = 50, games: int = 64, sims: int = 100):
+def api_train_start(gens: int = 50, games: int = 128, sims: int = 100):
     result = _singleton.start(gens=gens, games=games, sims=sims)
     if result["ok"]:
         _broadcast({"type": "status", "data": _singleton.status()})
@@ -313,20 +317,11 @@ def api_config_write(cfg: dict):
 def api_replays():
     if not REPLAYS_DIR.exists():
         return []
-    # Include replays from root and decisive/ subdirectory
-    files = list(REPLAYS_DIR.glob("*.json"))
-    decisive_dir = REPLAYS_DIR / "decisive"
-    if decisive_dir.exists():
-        files.extend(decisive_dir.glob("*.json"))
+    # Recursively scan all subdirectories for replay JSON files
+    files = list(REPLAYS_DIR.rglob("*.json"))
     files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    # Return relative path from REPLAYS_DIR so the replay endpoint can find them
-    result = []
-    for p in files:
-        if p.parent == REPLAYS_DIR:
-            result.append(p.name)
-        else:
-            result.append(f"{p.parent.name}/{p.name}")
-    return result
+    # Return path relative to REPLAYS_DIR
+    return [str(p.relative_to(REPLAYS_DIR)).replace("\\", "/") for p in files]
 
 
 @app.get("/api/replay/{filename:path}")

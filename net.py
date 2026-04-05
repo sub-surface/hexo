@@ -159,7 +159,7 @@ def d6_augment_sample(sample: dict, tf_idx: int) -> dict:
 
 # ── Board encoding ────────────────────────────────────────────────────────────
 
-def encode_board(game: HexGame, size: int = BOARD_SIZE) -> np.ndarray:
+def encode_board(game: HexGame, size: int = BOARD_SIZE, fast: bool = False) -> np.ndarray:
     """
     Returns float32 array [IN_CH, size, size] centered on centroid of all pieces.
     If board empty, centers at (0,0).
@@ -229,6 +229,9 @@ def encode_board(game: HexGame, size: int = BOARD_SIZE) -> np.ndarray:
         if 0 <= qi < size and 0 <= ri < size:
             arr[7 + i, ri, qi] = 1.0
 
+    if fast:
+        return arr, (oq, or_)
+
     # Axis-chain planes 11-16: Eisenstein axis decomposition.
     # For each empty candidate cell, compute the chain length along each of the
     # three Z[omega] unit axes independently, for both current player and opponent.
@@ -264,6 +267,33 @@ def move_to_grid(q: int, r: int, oq: int, or_: int,
     if 0 <= col < size and 0 <= row < size:
         return (row, col)
     return None
+
+
+def top_k_from_logit_map(logit_map, board, oq, or_, k=16, size=BOARD_SIZE,
+                         _candidates=None):
+    """Extract top-K legal moves directly from a logit map.
+
+    Scans the highest-valued cells in the logit map, checks they are empty.
+    If _candidates is provided (the adjacency set), uses it as a fast legality
+    pre-filter. Otherwise accepts any empty cell within the window.
+    """
+    half = size // 2
+    flat = logit_map.ravel()
+    n_top = min(len(flat), k * 8)
+    top_idx = np.argpartition(flat, -n_top)[-n_top:]
+    top_idx = top_idx[np.argsort(flat[top_idx])[::-1]]
+
+    result = []
+    for idx in top_idx:
+        row, col = divmod(int(idx), size)
+        q = col - half + oq
+        r = row - half + or_
+        if (q, r) in board:
+            continue
+        result.append(((q, r), float(flat[idx])))
+        if len(result) >= k:
+            break
+    return result
 
 
 def encode_move(q: int, r: int, oq: int, or_: int,
@@ -412,7 +442,8 @@ class HexNet(nn.Module):
         # KataGo global pool: gives each cell global board awareness (threat density etc.)
         self.global_pool = GlobalPoolBranch(hidden)
 
-        # Value head — FC hidden scales with trunk channels for capacity balance
+        # Value head — WDL (win/draw/loss) 3-class softmax, trained with cross-entropy.
+        # Bounded by design: cross-entropy on softmax cannot produce runaway gradients.
         v_hidden = hidden * 2
         self.v_conv = nn.Sequential(
             nn.Conv2d(hidden, 1, 1, bias=False),
@@ -422,8 +453,7 @@ class HexNet(nn.Module):
         self.v_fc = nn.Sequential(
             nn.Linear(BOARD_SIZE * BOARD_SIZE, v_hidden),
             nn.ReLU(),
-            nn.Linear(v_hidden, 1),
-            nn.Tanh(),
+            nn.Linear(v_hidden, 3),  # win, draw, loss logits
         )
 
         # Policy head — spatial 18×18 logit map (single forward pass for full policy)
@@ -459,9 +489,15 @@ class HexNet(nn.Module):
     def trunk(self, x: torch.Tensor) -> torch.Tensor:
         return self.global_pool(self.blocks(self.stem(x)))
 
-    def value(self, features: torch.Tensor) -> torch.Tensor:
+    def value_wdl(self, features: torch.Tensor) -> torch.Tensor:
+        """WDL logits: [B, 3] (win, draw, loss)."""
         v = self.v_conv(features).flatten(1)
-        return self.v_fc(v).squeeze(-1)          # [B]
+        return self.v_fc(v)                       # [B, 3]
+
+    def value(self, features: torch.Tensor) -> torch.Tensor:
+        """Scalar value in [-1, 1]: P(win) - P(loss)."""
+        wdl = F.softmax(self.value_wdl(features), dim=-1)
+        return wdl[:, 0] - wdl[:, 2]             # [B]
 
     def variance(self, features: torch.Tensor) -> torch.Tensor:
         """Predicted σ² of value estimate. [B] > 0 via Softplus."""

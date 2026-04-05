@@ -40,7 +40,6 @@ class HexGame:
         self.winner: int | None = None
         self.move_history: list[tuple[int, int]] = []
         self.player_history: list[int] = []  # player who made each move in move_history
-        # undo stack: each entry = (move, removed_candidates, added_candidates, prev_placements, prev_winner, prev_player)
         self._undo: list[tuple] = []
 
     # ------------------------------------------------------------------
@@ -58,7 +57,7 @@ class HexGame:
         self.move_history.append((q, r))
         self.player_history.append(self.current_player)
 
-        # Update candidates incrementally
+        # Update candidates (adjacency, 6 neighbors — cheap)
         removed = set()
         added = set()
         if (q, r) in self.candidates:
@@ -77,14 +76,12 @@ class HexGame:
 
         prev_placements = self.placements_in_turn
         prev_player = self.current_player
-        
+
         self.placements_in_turn += 1
         if not won:
-            # First move of game (len=0): player 1 gets 1 placement
-            # Subsequent moves: 2 placements
             is_first_move = (len(self.move_history) == 1)
             limit = 1 if is_first_move else 2
-            
+
             if self.placements_in_turn >= limit:
                 self.current_player = 3 - self.current_player
                 self.placements_in_turn = 0

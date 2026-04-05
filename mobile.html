@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>HexGo Mobile</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --bg: #080b0f; --card: #0d1117; --border: #1a2030; --dim: #556677; --text: #c8d0d8; --accent: #4090e0; --red: #e06060; --green: #40c070; }
+body { background: var(--bg); color: var(--text); font-family: 'SF Mono', 'Consolas', monospace; font-size: 13px; padding: 12px; min-height: 100vh; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.card-title { font-size: 10px; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 8px; text-transform: uppercase; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.stat { display: flex; flex-direction: column; }
+.stat-label { font-size: 9px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; color: var(--text); }
+.stat-value.good { color: var(--green); }
+.stat-value.bad { color: var(--red); }
+.stat-value.accent { color: var(--accent); }
+.chart-wrap { position: relative; height: 160px; margin-top: 4px; }
+.log-box { font-size: 10px; color: var(--dim); max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
+.elo-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.elo-name { font-size: 11px; }
+.elo-score { font-size: 14px; font-weight: bold; }
+.pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.pulse.on { background: var(--green); animation: blink 1.5s infinite; }
+.pulse.off { background: var(--red); }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+#refresh-btn { position: fixed; bottom: 16px; right: 16px; width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: white; border: none; font-size: 20px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.5); z-index: 10; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-title">Status</div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <span class="pulse off" id="status-dot"></span>
+    <span id="status-text" style="font-size:14px; font-weight:bold;">--</span>
+  </div>
+  <div class="stat-grid" style="margin-top:10px;">
+    <div class="stat"><span class="stat-label">Generation</span><span class="stat-value accent" id="s-gen">--</span></div>
+    <div class="stat"><span class="stat-label">Gen Time</span><span class="stat-value" id="s-time">--</span></div>
+    <div class="stat"><span class="stat-label">Loss</span><span class="stat-value" id="s-loss">--</span></div>
+    <div class="stat"><span class="stat-label">LR</span><span class="stat-value" id="s-lr">--</span></div>
+    <div class="stat"><span class="stat-label">Buffer</span><span class="stat-value" id="s-buf">--</span></div>
+    <div class="stat"><span class="stat-label">Games/s</span><span class="stat-value" id="s-gps">--</span></div>
+    <div class="stat"><span class="stat-label">Avg Moves</span><span class="stat-value" id="s-moves">--</span></div>
+    <div class="stat"><span class="stat-label">Decisive</span><span class="stat-value" id="s-decisive">--</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Loss</div>
+  <div class="chart-wrap"><canvas id="chart-loss"></canvas></div>
+</div>
+
+<div class="card">
+  <div class="card-title">ELO</div>
+  <div id="elo-container">
+    <div style="color:var(--dim)">Loading...</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Components</div>
+  <div class="chart-wrap"><canvas id="chart-components"></canvas></div>
+</div>
+
+<div class="card">
+  <div class="card-title">Gen Time (s)</div>
+  <div class="chart-wrap"><canvas id="chart-time"></canvas></div>
+</div>
+
+<div class="card">
+  <div class="card-title">Recent Log</div>
+  <div class="log-box" id="log-box">Loading...</div>
+</div>
+
+<button id="refresh-btn" onclick="refresh()">&#8635;</button>
+
+<script>
+const BASE = '';
+async function api(path) {
+  const r = await fetch(BASE + path);
+  return r.json();
+}
+
+const chartOpts = (ylabel) => ({
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: true, labels: { color: '#556677', font: { size: 9 }, boxWidth: 8, padding: 6 } } },
+  scales: {
+    x: { ticks: { color: '#334', font: { size: 8 }, maxTicksLimit: 6 }, grid: { color: '#151e2a' } },
+    y: { ticks: { color: '#556677', font: { size: 9 } }, grid: { color: '#151e2a' }, title: { display: false } }
+  },
+  elements: { point: { radius: 0 }, line: { borderWidth: 1.5 } },
+  animation: false
+});
+
+let lossChart, compChart, timeChart;
+
+function initCharts() {
+  lossChart = new Chart(document.getElementById('chart-loss'), {
+    type: 'line', data: { labels: [], datasets: [{ label: 'Total Loss', data: [], borderColor: '#4090e0' }] },
+    options: chartOpts('loss')
+  });
+  compChart = new Chart(document.getElementById('chart-components'), {
+    type: 'line', data: { labels: [], datasets: [
+      { label: 'Policy', data: [], borderColor: '#e0a040' },
+      { label: 'Value', data: [], borderColor: '#40c070' },
+      { label: 'Entropy', data: [], borderColor: '#a060e0' }
+    ] }, options: chartOpts('loss')
+  });
+  timeChart = new Chart(document.getElementById('chart-time'), {
+    type: 'line', data: { labels: [], datasets: [
+      { label: 'Self-play', data: [], borderColor: '#e06060' },
+      { label: 'Training', data: [], borderColor: '#4090e0' }
+    ] }, options: chartOpts('seconds')
+  });
+}
+
+async function refresh() {
+  try {
+    const [metrics, elo, status, log] = await Promise.all([
+      api('/api/metrics'), api('/api/elo'), api('/api/status'), api('/api/log?n=30')
+    ]);
+
+    // Status card
+    const running = status.running;
+    document.getElementById('status-dot').className = 'pulse ' + (running ? 'on' : 'off');
+    document.getElementById('status-text').textContent = running ? 'Training' : 'Stopped';
+
+    if (metrics.length > 0) {
+      const m = metrics[metrics.length - 1];
+      document.getElementById('s-gen').textContent = m.gen;
+      document.getElementById('s-time').textContent = m.gen_time_s ? m.gen_time_s.toFixed(0) + 's' : '--';
+      document.getElementById('s-loss').textContent = m.avg_loss ? m.avg_loss.toFixed(4) : '--';
+      document.getElementById('s-lr').textContent = m.lr ? m.lr.toExponential(1) : '--';
+      document.getElementById('s-buf').textContent = m.buffer_size ? (m.buffer_size / 1000).toFixed(0) + 'K' : '--';
+      document.getElementById('s-gps').textContent = m.games_per_s ? m.games_per_s.toFixed(1) : '--';
+      document.getElementById('s-moves').textContent = m.avg_moves ? m.avg_moves.toFixed(0) : '--';
+      document.getElementById('s-decisive').textContent = m.decisive != null ? m.decisive + '/128' : '--';
+
+      // Charts
+      const gens = metrics.map(m => m.gen);
+      lossChart.data.labels = gens;
+      lossChart.data.datasets[0].data = metrics.map(m => m.avg_loss);
+      lossChart.update();
+
+      compChart.data.labels = gens;
+      compChart.data.datasets[0].data = metrics.map(m => m.avg_loss_p);
+      compChart.data.datasets[1].data = metrics.map(m => m.avg_loss_v);
+      compChart.data.datasets[2].data = metrics.map(m => m.avg_ent);
+      compChart.update();
+
+      timeChart.data.labels = gens;
+      timeChart.data.datasets[0].data = metrics.map(m => m.sp_time_s);
+      timeChart.data.datasets[1].data = metrics.map(m => m.tr_time_s);
+      timeChart.update();
+    }
+
+    // ELO
+    const eloEl = document.getElementById('elo-container');
+    if (elo && elo.agents) {
+      const sorted = Object.entries(elo.agents).sort((a, b) => b[1].rating - a[1].rating);
+      eloEl.innerHTML = sorted.map(([name, data]) => {
+        const isNet = name.toLowerCase().includes('net');
+        const color = isNet ? 'var(--accent)' : 'var(--dim)';
+        return `<div class="elo-row"><span class="elo-name" style="color:${color}">${name}</span><span class="elo-score" style="color:${color}">${Math.round(data.rating)}</span></div>`;
+      }).join('');
+    } else {
+      eloEl.innerHTML = '<div style="color:var(--dim)">No ELO data</div>';
+    }
+
+    // Log
+    document.getElementById('log-box').textContent = log.lines ? log.lines.slice(-20).join('\n') : 'No log data';
+
+  } catch (e) {
+    document.getElementById('status-text').textContent = 'Offline';
+    document.getElementById('status-dot').className = 'pulse off';
+  }
+}
+
+// SSE for live updates
+function connectSSE() {
+  const es = new EventSource(BASE + '/events');
+  es.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'metrics' || msg.type === 'gen_done') refresh();
+    } catch (_) {}
+  };
+  es.onerror = () => { setTimeout(connectSSE, 5000); };
+}
+
+initCharts();
+refresh();
+connectSSE();
+// Auto-refresh every 30s as fallback
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

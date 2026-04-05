@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HexGo</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -191,15 +192,15 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
   <!-- row 2: charts 2×4 -->
   <div class="train-charts">
     <div class="panel" style="flex:1; display:flex; flex-direction:column;">
-      <div class="panel-hd">TOTAL LOSS</div>
+      <div class="panel-hd" id="hd-loss">TOTAL LOSS</div>
       <div class="panel-body chart-wrap" style="padding:6px;"><canvas id="chart-loss"></canvas></div>
     </div>
     <div class="panel" style="flex:1; display:flex; flex-direction:column;">
-      <div class="panel-hd">VALUE LOSS</div>
+      <div class="panel-hd" id="hd-lossv">VALUE LOSS</div>
       <div class="panel-body chart-wrap" style="padding:6px;"><canvas id="chart-lossv"></canvas></div>
     </div>
     <div class="panel" style="flex:1; display:flex; flex-direction:column;">
-      <div class="panel-hd">POLICY LOSS</div>
+      <div class="panel-hd" id="hd-lossp">POLICY LOSS</div>
       <div class="panel-body chart-wrap" style="padding:6px;"><canvas id="chart-lossp"></canvas></div>
     </div>
     <div class="panel" style="flex:1; display:flex; flex-direction:column;">
@@ -268,6 +269,7 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
           <button onclick="replayStep(1)">▶</button>
           <button onclick="replayReset()">↺</button>
         </div>
+        <button id="r-gifbtn" onclick="replayExportGif()" style="margin-top:8px;width:100%;padding:6px;font-size:11px;">Download GIF</button>
       </div>
     </div>
   </div>
@@ -383,6 +385,25 @@ function rebuildCharts() {
   setChart(charts.loss,  'avg_loss');
   setChart(charts.lossv, 'avg_loss_v');
   setChart(charts.lossp, 'avg_loss_p');
+
+  // Update headers with derivative (delta from previous gen)
+  function lossDerivative(key) {
+    const n = _allMetrics.length;
+    if (n < 2) return null;
+    const v0 = _allMetrics[n - 2][key], v1 = _allMetrics[n - 1][key];
+    if (v0 == null || v1 == null) return null;
+    return v1 - v0;
+  }
+  function derivTag(key) {
+    const d = lossDerivative(key);
+    if (d == null) return '';
+    const sign = d >= 0 ? '+' : '';
+    const color = d <= 0 ? '#3fb950' : '#e06060';
+    return ` <span style="color:${color};font-size:9px;margin-left:6px;">${sign}${d.toFixed(4)}/gen</span>`;
+  }
+  document.getElementById('hd-loss').innerHTML = 'TOTAL LOSS' + derivTag('avg_loss');
+  document.getElementById('hd-lossv').innerHTML = 'VALUE LOSS' + derivTag('avg_loss_v');
+  document.getElementById('hd-lossp').innerHTML = 'POLICY LOSS' + derivTag('avg_loss_p');
   setChart(charts.ent,   'avg_ent');
   setChart(charts.gps,   'games_per_s');
   setChart(charts.spt,   'sp_time_s');
@@ -674,62 +695,146 @@ async function loadReplayList() {
     const list = await api('/api/replays');
     const el = document.getElementById('replay-list');
     el.innerHTML = '';
-    // Group by generation
-    const genMap = {};
-    list.forEach(name => {
-      const m = name.match(/gen(\d+)/);
-      const gen = m ? parseInt(m[1]) : 0;
-      if (!genMap[gen]) genMap[gen] = [];
-      genMap[gen].push(name);
+
+    // Build tree: { folderName: { subFolder: { ... files }, _files: [...] } }
+    const tree = { _files: [] };
+    list.forEach(path => {
+      const parts = path.split('/');
+      const file = parts.pop();
+      let node = tree;
+      parts.forEach(dir => {
+        if (!node[dir]) node[dir] = { _files: [] };
+        node = node[dir];
+      });
+      node._files.push(path);
     });
-    // Sort generations descending (newest first)
-    const gens = Object.keys(genMap).map(Number).sort((a, b) => b - a);
-    gens.forEach(gen => {
-      // Folder header
+
+    // Sort folder names: "decisive" and special dirs first, then gen folders by number desc
+    function sortedDirs(node) {
+      return Object.keys(node).filter(k => k !== '_files').sort((a, b) => {
+        const aGen = a.match(/^gen(\d+)$/) ? parseInt(a.match(/\d+/)[0]) : null;
+        const bGen = b.match(/^gen(\d+)$/) ? parseInt(b.match(/\d+/)[0]) : null;
+        if (aGen !== null && bGen !== null) return bGen - aGen;
+        if (aGen !== null) return 1;
+        if (bGen !== null) return -1;
+        return a.localeCompare(b);
+      });
+    }
+
+    function makeFileBtn(path) {
+      const btn = document.createElement('div');
+      const fname = path.split('/').pop();
+      let label = fname.replace('game_','').replace('.json','').replace(/_\d{8}_\d{6}$/, '');
+      const isW1 = fname.includes('_w1_') || fname.includes('_w1');
+      const isW2 = fname.includes('_w2_') || fname.includes('_w2');
+      if (isW1) label = '● ' + label;
+      else if (isW2) label = '● ' + label;
+      else label = '○ ' + label;
+      btn.textContent = label;
+      btn.title = path;
+      btn.style.cssText = `padding:3px 6px;cursor:pointer;border-radius:2px;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .1s;color:${isW1 ? '#e06060' : isW2 ? '#6090e0' : 'var(--dim2)'};`;
+      btn.onmouseenter = () => btn.style.background = 'var(--border)';
+      btn.onmouseleave = () => btn.style.background = '';
+      btn.onclick = () => {
+        el.querySelectorAll('.replay-item-active').forEach(d => { d.classList.remove('replay-item-active'); d.style.background = ''; });
+        btn.style.background = 'var(--border)';
+        btn.classList.add('replay-item-active');
+        loadReplay(path);
+      };
+      return btn;
+    }
+
+    function countFiles(node) {
+      let n = (node._files || []).length;
+      Object.keys(node).filter(k => k !== '_files').forEach(k => { n += countFiles(node[k]); });
+      return n;
+    }
+
+    function renderFolder(node, name, depth) {
       const folder = document.createElement('div');
-      folder.style.cssText = 'margin-top:6px;';
+      folder.style.cssText = `margin-top:${depth === 0 ? 6 : 2}px;`;
       const header = document.createElement('div');
-      header.style.cssText = 'padding:4px 7px;cursor:pointer;color:var(--dim);font-size:10px;letter-spacing:1px;display:flex;align-items:center;gap:4px;user-select:none;';
-      header.innerHTML = `<span class="folder-arrow" style="font-size:8px;transition:transform .1s;">▶</span> GEN ${String(gen).padStart(3,'0')} <span style="color:var(--border2);margin-left:auto;">${genMap[gen].length}</span>`;
+      const indent = depth * 10;
+      header.style.cssText = `padding:4px 7px;padding-left:${7+indent}px;cursor:pointer;color:var(--dim);font-size:10px;letter-spacing:1px;display:flex;align-items:center;gap:4px;user-select:none;`;
+      const total = countFiles(node);
+      const icon = name === 'decisive' ? '⚔' : name === 'vs_greedy' ? '🆚' : '📁';
+      const displayName = name.toUpperCase().replace(/_/g, ' ');
+      header.innerHTML = `<span class="folder-arrow" style="font-size:8px;transition:transform .1s;">▶</span> ${icon} ${displayName} <span style="color:var(--border2);margin-left:auto;">${total}</span>`;
       const items = document.createElement('div');
-      items.style.cssText = 'display:none;padding-left:12px;';
+      items.style.cssText = 'display:none;';
       header.onclick = () => {
         const open = items.style.display !== 'none';
         items.style.display = open ? 'none' : 'block';
         header.querySelector('.folder-arrow').style.transform = open ? '' : 'rotate(90deg)';
       };
-      genMap[gen].forEach(name => {
-        const btn = document.createElement('div');
-        let label = name.replace(/.*\//, '').replace('game_','').replace('.json','').replace(/gen\d+_/, '').replace(/_\d{8}_\d{6}$/, '');
-        // Color-code by type
-        const isDecisive = name.startsWith('decisive/');
-        const isW1 = name.includes('_w1_');
-        const isW2 = name.includes('_w2_');
-        if (isW1) label = '● ' + label;
-        else if (isW2) label = '● ' + label;
-        else label = '○ ' + label;
-        btn.textContent = label;
-        btn.title = name;
-        btn.style.cssText = `padding:3px 6px;cursor:pointer;border-radius:2px;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .1s;color:${isW1 ? '#e06060' : isW2 ? '#6090e0' : 'var(--dim2)'};`;
-        btn.onmouseenter = () => btn.style.background = 'var(--border)';
-        btn.onmouseleave = () => btn.style.background = '';
-        btn.onclick = () => {
-          el.querySelectorAll('.replay-item-active').forEach(d => { d.classList.remove('replay-item-active'); d.style.background = ''; });
-          btn.style.background = 'var(--border)';
-          btn.classList.add('replay-item-active');
-          loadReplay(name);
-        };
-        items.appendChild(btn);
+
+      // Render subdirectories first
+      sortedDirs(node).forEach(subName => {
+        items.appendChild(renderFolder(node[subName], subName, depth + 1));
       });
+
+      // Then files in this folder, grouped by gen if applicable
+      const files = node._files || [];
+      if (files.length > 0) {
+        // Group by gen number within this folder
+        const genMap = {};
+        files.forEach(path => {
+          const m = path.match(/gen(\d+)/);
+          const gen = m ? parseInt(m[1]) : -1;
+          if (!genMap[gen]) genMap[gen] = [];
+          genMap[gen].push(path);
+        });
+        const genKeys = Object.keys(genMap).map(Number).sort((a, b) => b - a);
+        // If there are multiple gens, sub-group them; otherwise list flat
+        if (genKeys.length > 1 && files.length > 8) {
+          genKeys.forEach(gen => {
+            const subFolder = document.createElement('div');
+            subFolder.style.cssText = 'margin-top:2px;';
+            const subHeader = document.createElement('div');
+            subHeader.style.cssText = `padding:3px 7px;padding-left:${17+indent}px;cursor:pointer;color:var(--dim);font-size:9px;letter-spacing:1px;display:flex;align-items:center;gap:4px;user-select:none;`;
+            const genLabel = gen >= 0 ? `GEN ${String(gen).padStart(3,'0')}` : 'OTHER';
+            subHeader.innerHTML = `<span class="folder-arrow" style="font-size:7px;transition:transform .1s;">▶</span> ${genLabel} <span style="color:var(--border2);margin-left:auto;">${genMap[gen].length}</span>`;
+            const subItems = document.createElement('div');
+            subItems.style.cssText = `display:none;padding-left:${12+indent}px;`;
+            subHeader.onclick = (e) => {
+              e.stopPropagation();
+              const open = subItems.style.display !== 'none';
+              subItems.style.display = open ? 'none' : 'block';
+              subHeader.querySelector('.folder-arrow').style.transform = open ? '' : 'rotate(90deg)';
+            };
+            genMap[gen].forEach(path => subItems.appendChild(makeFileBtn(path)));
+            subFolder.appendChild(subHeader);
+            subFolder.appendChild(subItems);
+            items.appendChild(subFolder);
+          });
+        } else {
+          const fileContainer = document.createElement('div');
+          fileContainer.style.cssText = `padding-left:${12+indent}px;`;
+          files.forEach(path => fileContainer.appendChild(makeFileBtn(path)));
+          items.appendChild(fileContainer);
+        }
+      }
+
       folder.appendChild(header);
       folder.appendChild(items);
-      el.appendChild(folder);
-    });
-    // Auto-expand first (newest) generation
-    if (gens.length > 0) {
-      const firstFolder = el.querySelector('div');
-      if (firstFolder) firstFolder.querySelector('div')?.click();
+      return folder;
     }
+
+    // Render root-level files (not in any subfolder) grouped by gen
+    const rootFiles = tree._files || [];
+    if (rootFiles.length > 0) {
+      const rootNode = { _files: rootFiles };
+      el.appendChild(renderFolder(rootNode, 'self-play', 0));
+    }
+
+    // Render each top-level subfolder
+    sortedDirs(tree).forEach(dirName => {
+      el.appendChild(renderFolder(tree[dirName], dirName, 0));
+    });
+
+    // Auto-expand first folder
+    const firstHeader = el.querySelector('div div');
+    if (firstHeader) firstHeader.click();
   } catch (_) {}
 }
 
@@ -784,6 +889,48 @@ function replayStopPlay() {
   _replayPlaying = false;
   document.getElementById('r-playbtn').textContent = '▶▶';
   if (_replayTimer) { clearTimeout(_replayTimer); _replayTimer = null; }
+}
+
+function replayExportGif() {
+  if (!_replayData || !_replayData.moves.length) return;
+  const btn = document.getElementById('r-gifbtn');
+  btn.disabled = true; btn.textContent = 'Rendering...';
+  replayStopPlay();
+
+  const savedIdx = _replayIdx;
+  const canvas = document.getElementById('replay-canvas');
+  const w = canvas.width, h = canvas.height;
+  const delay = parseInt(document.getElementById('r-speed').value) || 300;
+
+  const gif = new GIF({ workers: 2, quality: 10, width: w, height: h,
+    workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js' });
+
+  // Render each move as a frame
+  const total = _replayData.moves.length;
+  for (let i = 0; i <= total; i++) {
+    replayJump(i);
+    gif.addFrame(canvas, { copy: true, delay: i === total ? delay * 3 : delay });
+  }
+
+  gif.on('finished', blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const label = _replayData.label || 'replay';
+    const gen = _replayData.gen != null ? `gen${String(_replayData.gen).padStart(4,'0')}` : '';
+    a.download = `hexgo_${label}_${gen}.gif`;
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.disabled = false; btn.textContent = 'Download GIF';
+  });
+
+  gif.on('error', () => {
+    btn.disabled = false; btn.textContent = 'Download GIF';
+  });
+
+  // Restore original position
+  replayJump(savedIdx);
+  gif.render();
 }
 
 // ── Hex renderer ───────────────────────────────────────────────────────────

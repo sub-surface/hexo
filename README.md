@@ -8,62 +8,59 @@ An AlphaZero-style self-play system for an infinite hexagonal Connect6 variant p
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Training Loop (train.py)                │
+│                      Training Loop (train.py)                   │
 │                                                                 │
 │  ┌──────────────┐     positions     ┌───────────────────────┐  │
-│  │  Self-Play   │ ────────────────► │   Replay Buffer       │  │
-│  │  Workers     │                   │   (FIFO, 50k cap)     │  │
-│  │  (parallel)  │                   └──────────┬────────────┘  │
+│  │  Rust Batched │ ────────────────► │   Replay Buffer       │  │
+│  │  Self-Play    │                   │   (FIFO, 100k cap)    │  │
+│  │  (lockstep)   │                   └──────────┬────────────┘  │
 │  └──────┬───────┘                              │ sample        │
-│         │ evaluate(game)                        ▼               │
+│         │ eval callback                         ▼               │
 │         ▼                             ┌─────────────────────┐  │
 │  ┌──────────────┐  batched GPU   ┌───►│  Training Step      │  │
-│  │  Inference   │ ◄──────────────┤   │  policy + value +   │  │
-│  │  Server      │                │   │  aux + unc loss     │  │
-│  │  (batched)   │                │   └──────────┬──────────┘  │
+│  │  Python GPU  │ ◄──────────────┤   │  WDL value (CE) +   │  │
+│  │  Eval        │                │   │  policy + aux + unc  │  │
+│  │  (PyO3)      │                │   └──────────┬──────────┘  │
 │  └──────────────┘                │              │ weights      │
 │         │                        │              ▼               │
 │         │                   ┌────┘   ┌─────────────────────┐  │
-│         └───────────────────┘        │  HexNet (~480K par) │  │
+│         └───────────────────┘        │  HexNet (~1.9M par) │  │
 │                  weights sync        └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                         HexNet (net.py)                         │
+│                       HexNet (net.py)                           │
 │                                                                 │
-│  Input [11, 18, 18]                                             │
-│    → HexConv2d(11→64) + BN + ReLU         [hex-masked stem]    │
-│    → 4× ResBlock(64ch, HexConv2d)         [trunk]              │
-│    → GlobalPoolBranch                     [board context]       │
-│    ├→ value head          → scalar ∈ [-1,1]                    │
-│    ├→ uncertainty head    → σ² (Gaussian NLL)                  │
-│    ├→ ownership aux head  → [18,18] ∈ (-1,1)                   │
-│    ├→ threat aux head     → [18,18] ∈ (0,1)                    │
-│    └→ policy head         → logit per candidate move           │
+│  Input [17, 18, 18]                                             │
+│    → HexConv2d(17→128) + BN + ReLU         [hex-masked stem]   │
+│    → 6× ResBlock(128ch, HexConv2d)          [trunk]             │
+│    → GlobalPoolBranch                       [board context]     │
+│    ├→ WDL value head     → [3] softmax (win/draw/loss)         │
+│    ├→ uncertainty head   → σ² (Gaussian NLL)                   │
+│    ├→ ownership aux head → [18,18] ∈ (-1,1)                    │
+│    ├→ threat aux head    → [18,18] ∈ (0,1)                     │
+│    └→ policy head        → [18,18] logit map                   │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                         MCTS (mcts.py)                          │
+│                   Rust Engine (hexgo-rs/)                        │
 │                                                                 │
-│  Root node                                                      │
-│    → ZOI pruning (~80-90% branch reduction)                     │
-│    → Dirichlet noise on priors                                  │
-│    → PUCT selection (CPUCT=2.0)                                 │
-│    → Leaf: InferenceServer.evaluate()                           │
-│    → Backprop with 1-2-2 sign convention                        │
-│    → Gumbel argmax root selection                               │
+│  PyO3 + maturin crate — 3-4x speedup over Python MCTS          │
+│    → game.rs:     HexGame engine (make/unmake, win detection)   │
+│    → encode.rs:   Board encoding (17ch), ZOI-filtered top-K     │
+│    → batched.rs:  Lockstep MCTS with Python GPU eval callback   │
+│    → node.rs:     Arena-allocated MCTS tree                     │
+│    → Rayon parallel board encoding                              │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Dashboard (app.py)                         │
+│                   Dashboard (app.py)                             │
 │                                                                 │
-│  Browser UI (dashboard.html)                                    │
+│  Browser UI (dashboard.html) + Mobile (/mobile)                 │
 │    ↕ REST + SSE                                                 │
 │  FastAPI backend (server.py)                                    │
-│    → start/stop training subprocess                             │
-│    → stream metrics.jsonl via SSE                               │
-│    → read/write config.py safely (ast, type-validated)          │
-│    → serve replays                                              │
+│    → start/stop training, stream metrics, serve replays         │
+│    → GIF export, loss derivative display                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -71,27 +68,27 @@ An AlphaZero-style self-play system for an infinite hexagonal Connect6 variant p
 
 ## Quick Start
 
-**Requirements:** Python 3.12, PyTorch with CUDA, FastAPI, uvicorn.
+**Requirements:** Python 3.12, PyTorch with CUDA, Rust toolchain (for hexgo-rs).
 
 ```bash
-# Install dependencies
+# Install Python dependencies
 pip install torch torchvision fastapi uvicorn numpy
 
-# Run the dashboard (recommended)
+# Build Rust engine
+cd hexgo-rs && maturin build --release && pip install target/wheels/*.whl && cd ..
+
+# Run training
+bash run.sh train.py --gens 200 --sims 200 --games 128
+
+# Run the dashboard
 bash run.sh app.py
-# Opens http://127.0.0.1:7860 — use Start/Stop buttons to control training
-
-# Or run training directly
-bash run.sh train.py --gens 50 --games 20 --sims 100
-
-# Run autotune
-bash run.sh tune.py --trials 10 --gens 5
+# Opens http://127.0.0.1:7860 — mobile view at /mobile
 
 # Run tests
-pytest tests/ -v
+pytest tests/ -v   # 36 tests (25 game + 11 Rust parity)
 ```
 
-> **Windows note:** Always use `bash run.sh <script>` or `& "C:\Program Files\Python312\python.exe" <script>`. The bare `python` command will pick up the wrong interpreter.
+> **Windows note:** Always use `bash run.sh <script>` — bare `python` may pick up the wrong interpreter.
 
 ---
 
@@ -101,16 +98,17 @@ pytest tests/ -v
 
 - **Win condition:** 6 consecutive pieces along any of the 3 Z[ω] unit axes (q-axis, r-axis, diagonal)
 - **Turn rule:** P1 places 1 stone on turn 1; both players place 2 per turn thereafter
-- **Board:** Infinite grid; the 18×18 window is centered on the centroid of the last 20 moves
+- **Board:** Infinite grid; the 18x18 window is centered on the centroid of the last 20 moves
 - **Coordinate system:** Axial (q, r) — isomorphic to the Eisenstein integers Z[ω]
+- **Key tactical insight:** An uncontested 4-chain is a forced win (2 stones/turn → extend to 6)
 
-The Z[ω] framing is not cosmetic — it drives three concrete engineering choices:
+The Z[ω] framing drives three engineering choices:
 
 | Choice | What it does |
 |--------|-------------|
-| `HexConv2d` | Masks the 2 non-adjacent corners of 3×3 kernels — Z[ω]-faithful receptive field |
-| D6 augmentation | 12 symmetry transforms × every training sample = 12× free data diversity |
-| `EisensteinGreedyAgent` | Erdős-Selfridge potential maximizer; permanent ELO anchor and curriculum opponent |
+| `HexConv2d` | Masks the 2 non-adjacent corners of 3x3 kernels — Z[ω]-faithful receptive field |
+| D6 augmentation | 12 symmetry transforms per training sample = 12x free data diversity |
+| `EisensteinGreedyAgent` | Erdos-Selfridge potential maximizer; permanent ELO anchor |
 
 ---
 
@@ -118,37 +116,37 @@ The Z[ω] framing is not cosmetic — it drives three concrete engineering choic
 
 | File | Role |
 |------|------|
-| `game.py` | HexGame engine: make/unmake, win detection, ZOI pruning, candidates set |
-| `net.py` | HexNet: HexConv2d trunk, 4 heads, D6 augmentation, CA weight init |
-| `mcts.py` | MCTS: PUCT selection, 1-2-2 backprop sign convention |
-| `inference.py` | InferenceServer: dynamic batching, transposition cache, persistent cross-gen cache |
-| `train.py` | Training loop: self-play workers, overlapped training, TD-lambda, ELO eval |
+| `game.py` | HexGame engine: make/unmake, win detection, ZOI pruning |
+| `net.py` | HexNet: HexConv2d trunk, WDL value head, policy head, aux heads, D6 augmentation |
+| `mcts.py` | MCTS: PUCT selection, 1-2-2 backprop sign convention, Gumbel root selection |
+| `train.py` | Training loop: Rust batched self-play, WDL cross-entropy, TD-lambda, ZOI curriculum |
+| `hexgo-rs/` | Rust engine: game, MCTS tree, board encoding, batched self-play (PyO3/maturin) |
 | `elo.py` | ELO system: NetAgent, EisensteinGreedyAgent, run_match |
-| `config.py` | All tunable hyperparameters — edit this to change anything |
-| `server.py` | FastAPI backend: 12 REST endpoints + SSE stream |
-| `dashboard.html` | Single-file dark-mode dashboard: Training / Replay / Config tabs |
-| `app.py` | Launcher: starts uvicorn, opens browser |
-| `tune.py` | Autotune: random trial orchestrator, reward = Eisenstein winrate decrease |
-| `replay.py` | Terminal hex-grid replay renderer |
+| `config.py` | All tunable hyperparameters |
+| `server.py` | FastAPI backend: REST + SSE stream |
+| `dashboard.html` | Dark-mode dashboard: Training / Replay / Config tabs |
+| `mobile.html` | Mobile monitoring page with charts and log |
+| `play.py` | Tkinter GUI for playing against any checkpoint |
+| `autoresearch/` | Karpathy-style autonomous experiment loop |
 
 ---
 
 ## Configuration
 
-All hyperparameters live in `config.py`. Key ones:
+All hyperparameters in `config.py`. Key train.py overrides:
 
-| Key | Default | Notes |
-|-----|---------|-------|
-| `SIMS` | 50 | Full MCTS sim budget (25% of games) |
-| `SIMS_MIN` | 15 | Reduced budget floor (75% of games) |
+| Key | Value | Notes |
+|-----|-------|-------|
+| `LR` | 2e-4 | Adam learning rate (cosine schedule) |
+| `SIMS` | 200 | MCTS simulations per move (CLI arg) |
+| `BATCH_SIZE` | 512 | Training batch size |
+| `BUFFER_CAP` | 100,000 | Replay buffer capacity |
+| `TRUNK_BLOCKS` | 6 | Residual blocks (restart required) |
+| `TRUNK_CHANNELS` | 128 | Hidden channels (restart required) |
 | `CPUCT` | 2.0 | PUCT exploration constant |
-| `TRUNK_BLOCKS` | 4 | Residual blocks — requires process restart to change |
-| `TRUNK_CHANNELS` | 64 | Hidden channels — requires process restart to change |
-| `LR` | 1e-3 | Learning rate (decays via CosineAnnealingLR) |
-| `ENTROPY_REG` | 0.01 | Policy entropy bonus weight |
-| `DIRICHLET_ALPHA` | 0.09 | Root noise concentration (10/\|ZoI\|) |
-
-You can edit `config.py` directly or use the Config tab in the dashboard. Changes take effect on the next training run (architecture params require a restart).
+| `TOP_K` | 24 | Policy branching factor |
+| `ZOI_MARGIN` | 4→5 | ZOI curriculum over 30 gens |
+| `MAX_MOVES_MAX` | 120 | Game length cap |
 
 ---
 
@@ -156,34 +154,31 @@ You can edit `config.py` directly or use the Config tab in the dashboard. Change
 
 Each generation:
 
-1. **Self-play:** `games_per_gen` games run in parallel threads, guided by MCTS + HexNet
-2. **Replay buffer:** positions stored as `(board_tensor, move_plane, z)` with TD-lambda value targets
-3. **Training:** batches sampled with recency weighting (75% recent half); D6 augmented on the fly
-4. **ELO eval:** net vs `EisensteinGreedyAgent` every generation; ELO written to `elo.json`
-5. **Metrics:** loss components, `move_acc`, `avg_sigma`, `eis_winrate` appended to `metrics.jsonl`
+1. **Self-play:** 128 games via Rust lockstep MCTS with ZOI-restricted move selection
+2. **Replay buffer:** positions stored with board encoding, policy targets, legal masks, WDL value targets (TD-lambda)
+3. **Training:** batches sampled with recency weighting (75/25); D6 augmented on the fly
+4. **Loss:** WDL cross-entropy (value) + masked cross-entropy (policy) + ownership/threat aux + uncertainty + entropy reg
+5. **ELO eval:** net vs EisensteinGreedyAgent every 10 gens
+6. **Metrics:** all loss components + games/s + decisive ratio appended to `metrics.jsonl`
 
 ---
 
-## Docs
+## AutoResearch
 
-| Doc | Contents |
-|-----|----------|
-| [DESIGN.md](docs/DESIGN.md) | Mathematical framework, Z[ω] axioms, component index |
-| [NET.md](docs/NET.md) | Network architecture, input encoding, HexConv2d, D6 group |
-| [MCTS.md](docs/MCTS.md) | Search algorithm, backprop sign convention, known issues |
-| [TRAINING.md](docs/TRAINING.md) | Self-play loop, loss functions, TD-lambda targets |
-| [INFERENCE.md](docs/INFERENCE.md) | Batching server, caching, performance notes |
-| [ELO.md](docs/ELO.md) | Rating system, agents, evaluation mechanics |
-| [AUTOTUNE.md](docs/AUTOTUNE.md) | Hyperparameter search, tune.py workflow |
-| [ROADMAP.md](docs/ROADMAP.md) | Feature status and open items |
-| [ASSESSMENT.md](docs/ASSESSMENT.md) | Honest code review and known issues |
+Karpathy-style autonomous experiment loop in `autoresearch/`:
+- `program.md` — agent instructions for the never-stop loop
+- `run_trial.py` — fixed-budget trial runner (10 gens + ELO eval)
+- `experiments_queue.md` — 9 prioritized experiments (Tier 2 + 3)
+- `results.tsv` — experiment log with keep/discard decisions
+
+See `docs/TRAINING_RESEARCH.md` for the full state-of-the-art analysis.
 
 ---
 
 ## Tests
 
 ```bash
-pytest tests/ -v   # 26 tests
+pytest tests/ -v   # 36 tests (25 game + 11 Rust parity)
 ```
 
-Covers: win detection on all 3 axes, undo correctness, D6 symmetry, EisensteinGreedyAgent, autotune pipeline.
+Covers: win detection on all 3 axes, undo correctness, D6 symmetry, EisensteinGreedyAgent, Rust/Python encoding parity.

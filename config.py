@@ -5,13 +5,13 @@
 CFG = {
     "LR": 0.001,
     "WEIGHT_DECAY": 0.0001,
-    "BATCH_SIZE": 32,
-    "SIMS": 31,
-    "SIMS_MIN": 16,
+    "BATCH_SIZE": 64,
+    "SIMS": 100,
+    "SIMS_MIN": 25,
     "CAP_FULL_FRAC": 0,
-    "CPUCT": 1.5,
-    "DIRICHLET_ALPHA": 0.15,   # raised from 0.09 — more exploration to break plateau
-    "DIRICHLET_EPS": 0.35,    # raised from 0.25 — stronger noise mixing
+    "CPUCT": 2.0,               # research target 2.0–2.5; pairs with 400 sims
+    "DIRICHLET_ALPHA": 0.10,    # ~10/|ZoI|; less noise needed with deeper search
+    "DIRICHLET_EPS": 0.25,      # reduced — 400 sims provides enough exploration
     "ZOI_MARGIN": 5,
     "ZOI_LOOKBACK": 16,
     "GUMBEL_SELECTION": True,
@@ -22,9 +22,9 @@ CFG = {
     "TRUNK_BLOCKS": 6,
     "TRUNK_CHANNELS": 128,
     "WEIGHT_INIT": 'ca',
-    "VALUE_LOSS_WEIGHT": 1,
+    "VALUE_LOSS_WEIGHT": 1.0,
     "ENTROPY_REG": 0.01,
     "AUX_LOSS_OWN": 0.1,
     "AUX_LOSS_THREAT": 0.1,
-    "UNC_LOSS_WEIGHT": 0,
+    "UNC_LOSS_WEIGHT": 0.05,    # conservative for fresh start
 }
