@@ -9,8 +9,8 @@ You run experiments in a loop: **propose change → train → evaluate → keep/
 
 ## Environment
 
-- **Project**: `C:\Users\landa\.claude\projects\hexgo2`
-- **Python**: `C:\Users\landa\AppData\Local\Programs\Python\Python312\python.exe`
+- **Project**: `C:\Users\Leon\Desktop\Psychograph\hexgo`
+- **Python**: `C:\Program Files\Python312\python.exe`
 - **GPU**: RTX 5070 Ti (16GB VRAM)
 - **Training**: `bash run.sh train.py --gens <N> --sims 200 --games 128`
 - **Experiment runner**: `bash run.sh autoresearch/run_trial.py --gens 10`

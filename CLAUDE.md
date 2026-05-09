@@ -20,12 +20,12 @@ The mathematical framing is not cosmetic — it drives three concrete engineerin
 
 ## Python interpreter
 
-**Always use `C:\Users\landa\AppData\Local\Programs\Python\Python312\python.exe`** — this is the only install with
+**Always use `C:\Program Files\Python312\python.exe`** — this is the install with
 torch+CUDA, fastapi, and uvicorn. Running `python` or `py` from PowerShell will pick up
 the wrong interpreter and fail with `ModuleNotFoundError`.
 
 - **bash/WSL**: use `bash run.sh <script.py>` (already hard-codes the path)
-- **PowerShell**: use `run.bat <script.py>` or `& "C:\Users\landa\AppData\Local\Programs\Python\Python312\python.exe" <script.py>`
+- **PowerShell**: use `run.bat <script.py>` or `& "C:\Program Files\Python312\python.exe" <script.py>`
 
 ---
 
