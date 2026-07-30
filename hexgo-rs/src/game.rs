@@ -115,6 +115,48 @@ impl HexGame {
         self.make_move(q, r)
     }
 
+    /// Load an arbitrary LIVE (non-terminal) position, for adapters that
+    /// track game state independently (e.g. competition/arena.py's State,
+    /// or SealBot's own HexGame) and need to hand a matching position to
+    /// this engine's search without replaying full move history -- turn
+    /// state (current_player, placements_in_turn) is already known to
+    /// those callers directly, it doesn't need to be re-derived. Clears
+    /// the undo stack: only valid to call between top-level moves, never
+    /// mid-search. `stones` is a flat (q, r, player) list; candidates are
+    /// recomputed from the board's exposed neighbors.
+    #[pyo3(signature = (stones, current_player, placements_in_turn))]
+    pub fn set_position(&mut self, stones: Vec<(i16, i16, u8)>, current_player: u8,
+                        placements_in_turn: u8) {
+        self.board.clear();
+        self.candidates.clear();
+        self.undo_stack.clear();
+        self.move_history.clear();
+        self.player_history.clear();
+        self.winner_inner = NO_PLAYER;
+        for (q, r, p) in stones {
+            self.board.insert((q, r), p);
+        }
+        if self.board.is_empty() {
+            self.candidates.insert((0, 0));
+        } else {
+            for &(q, r) in self.board.keys() {
+                for &(dq, dr) in &DIRS {
+                    let nb = (q + dq, r + dr);
+                    if !self.board.contains_key(&nb) {
+                        self.candidates.insert(nb);
+                    }
+                }
+            }
+            // length >= 2 marks "not the game's very first (1-stone) turn"
+            // -- stones_this_turn()/search.rs's free-function mirror both
+            // key off move_history.len(), and any non-empty board here is
+            // by definition past the opening special case.
+            self.move_history = vec![(0, 0), (0, 0)];
+        }
+        self.current_player = current_player;
+        self.placements_in_turn = placements_in_turn;
+    }
+
     /// Winner as Python int or None.
     #[getter]
     pub fn winner(&self) -> Option<Player> {

@@ -7,6 +7,7 @@ mod mcts;
 mod parallel;
 mod encode;
 mod batched;
+mod search;
 
 /// HexGo Rust engine — drop-in replacement for game.py + mcts.py.
 ///
@@ -34,6 +35,9 @@ fn hexgo(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<batched::GameTrainingResult>()?;
     m.add_class::<batched::PositionData>()?;
     m.add_function(wrap_pyfunction!(batched::batched_self_play, m)?)?;
+
+    // Alpha-beta search (hexo-theory competition bot, Rust port)
+    m.add_function(wrap_pyfunction!(search::deep_minimax_move, m)?)?;
 
     // Constants
     m.add("WIN_LENGTH", types::WIN_LENGTH)?;
